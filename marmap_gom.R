@@ -37,7 +37,7 @@ plot(bat, image = FALSE)
 
 scaleBathy(bat, deg = 2, x = "bottomleft", inset = 5)
 points(loc[, c(3:4)], bg = "orange", cex = 0.8, pch = 21)
-
+# este es un cambio
 #text(sites[,1], sites[,2], lab = rownames(sites),
 text(loc[which(loc$Station %in% presence), c(3:4)], lab = rownames(loc))
 
