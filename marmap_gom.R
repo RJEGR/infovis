@@ -1,3 +1,4 @@
+library(marmap)
 # Import bathymetry
 #bat <- getNOAA.bathy(-100, -80, 18, 31, res = 1, keep = TRUE)
 bat <- getNOAA.bathy(-99, -84, 18, 26, res = 1, keep = TRUE)
