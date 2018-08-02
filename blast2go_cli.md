@@ -75,7 +75,7 @@ Finally load your blast xml-file results as documentation in blast2go Command Li
 
 ```bash
 salloc -N 1 -n 24 --exclusive --nodelist nodo30
-ssh nodo30@username
+ssh nodo30
 # password:  ***
 
 ```
@@ -84,7 +84,7 @@ After finish your task, please exit the node 30 by typing:
 
 ```bash
 disown %1
-exit
+exitless
 ```
 
 > In case to thread the task, please use `nohup` to manage any bast2go task. Ex `nohup blast2go_cli.run command & ` 
@@ -109,14 +109,14 @@ blast2go_cli.run -properties cli.prop -useobo DB/go_latest.obo -loadfasta ./Trin
 blast2go_cli.run -properties cli2.prop -useobo ../DB/go_latest.obo -loadb2g example_data/example.b2g -goslim example_data/goslim_plant.obo -saveb2g -tempfolder ./tmp
 ```
 
-## Load protein fasta file, add corresponding blast result and execute GO mapping and annotation. 
+## Load fasta file, add corresponding blast result and execute GO mapping and annotation. 
 
 >  runing in nohup ... still running
 
 ```bash
 nohup \
 blast2go_cli.run -properties cli.prop -loadfasta \
-Trinity.fasta.subset -loadblast \
+Trinity.fasta.subset -loadblast31 \
 local_blast.xml -mapping -annotation \
 -workspace work_dir -nameprefix prefix -saveb2g -saveannot -savereport \
 -saveseqtable -statistics gdatadispie,aecdis -tempfolder ./tmp \
@@ -155,5 +155,26 @@ Quedo pendiente de cualquier pregunta o sugerencia.
 >
 > > **Manual**: https://www.blast2go.com/images/b2g_pdfs/blast2go_cli_manual.pdf 
 >
-> WORKDIR = /LUSTRE/bioinformatica_data/genomica_funcional/rgomez/blast2go
+> WORKDIR=/LUSTRE/bioinformatica_data/genomica_funcional/rgomez/blast2go
 
+## second report
+
+After install blast2go_cli (activated licence) in a cluster node with Linux Red-Hat Enterprise 6.7 system (storage of 131 TB (lustre + infiniband)) + 24 cores) We processed the cli_prop file as manual said: `blast2go_cli.run -createproperties cli.prop` and replace the database path file (downloaded manually) in section  `DataAccessParameters` and start trying the examples described in the manual.Our intention were run GO Mapping,  Annotation  and report blast2go stats at beginning. Therefore, We included the parsing the sequence IDs within the makeblast step plus the fixed reference database (changing separator line with `sed -i 's/\s/|/g' uniprot_sprot.pep`). Then, we ensured to use the parameter `-show_gis` in blastx (2.4.0+) in order to retrieve the accessions IDs from the formatted database. Unfortunately we had unknown of problems trying to test the any example (as the manual described) with either,  the data_example data sets and subset of our own datasets.
+
+The chunk-code of the blastx was as above:
+
+`makeblastdb -dbtype prot -in uniprot_sprot.pep -parse_seqids -out uniprot_sprot`
+
+`blastx -db ./DB/uniprot/uniprot_sprot -outfmt 5 -evalue 1e-3 -word_size 3 -show_gis -num_alignments 20 -max_hsps 20 -num_threads 24 -out local_blast.xml -query Trinity.fasta.subset`
+
+ In the next section I summarize the errors found: *Error "there are not sequences with mapping*" in every use-case-example command. Specially the example 1,2,3 and 5 from section 4.1 in the manual. It issue were tested after the blog indications [here](https://www.blast2go.com/support/blog/22-blast2goblog/111-format-fasta-file-blast) and [Frequently Asked Questions](https://www.blast2go.com/support/faq#faqnoanchor) -No mapping results after loading my own blast xml file without any solution. 
+
+A quick solution to skip this error message were add the -tempfolder option in all the blast2go_cli command nevertheless, only converting sequences to proteins use-case-example finish properly and the rest of the Blast2go_cli use-case-examples stucks running indefinitely without any warning or error message using either, the data_example data sets and subset of our own datasets. Finally we could solve this unreported error by switching the option `-loadblast` to `-loadblast31`. 
+
+The final problem were running the code below than output statistics in pdf file but unfortunately with plots are empty and the log file recall an annotation error: There are no sequences with Mapping, please do the mapping before run Annotation.
+
+`blast2go_cli.run -properties cli.prop -loadfasta example_data/1000_plant.fasta -loadblast31 example_data/1000_plant_blastResult.xml -mapping -annotation -saveb2g example.b2g tempfolder ./tmp -savereport example.pdf`
+
+I attached to this mail the report example.pdf, cli.prop and the log file produced by this step in addition to the own subset of datasets implemented during testing blas2go_cli.
+
+We are very concerned about the time we have had spent using this tool without satisfactory results so we decided to emigrate and use the comprehensive annotation suite trinotate in our lab.
