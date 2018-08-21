@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
 #
 #------------------------------
@@ -13,14 +13,9 @@
 """
 
 from Bio import SeqIO
-
+import sys
 
 file = sys.argv[1]
-#out = open(sys.argv[2], 'w')
-out = open(file+'.subset', 'w')
-frt = sys.argv[2]
-sys.stdout = out
-orig_stdout = sys.stdout
 
 
 SeqIO.convert(file, 'fastq', file+'.fasta', 'fasta')
