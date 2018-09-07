@@ -1,3 +1,5 @@
+# good ref at https://rstudio-pubs-static.s3.amazonaws.com/301056_e188ebc4c8644410b4abbc4ae98b6c98.html
+
 library(marmap)
 # Import bathymetry
 # bat <- getNOAA.bathy(-99, -84, 18, 26, res = 1, keep = TRUE)
