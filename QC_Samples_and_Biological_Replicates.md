@@ -123,6 +123,13 @@ By default prcomp expects the samples to be rows and genes to be columns. Let's 
 
 pca <- prcomp(t(data.matrix), scale=TRUE)
 
+## make a scree plot
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100, 1)
+ 
+barplot(pca.var.per, main="Scree Plot", xlab="Principal Component", ylab="Percent Variation")
+ 
+
 library(ggplot2)
 
 pca.data <- data.frame(Sample=rownames(pca$x),
