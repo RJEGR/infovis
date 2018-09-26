@@ -8,7 +8,7 @@ Una de las etapas mas cruciales es el procesamiento de las lecturas para formar 
 
 
 
-# Sobre-estimando filotipos raros
+# Sobre-estimando filotipos raros (ktone)
 
 Cada OTU (amplicon) es interpretado com oun identificador unico de un miembro de la comunidad. 
 
@@ -18,6 +18,10 @@ Los errores en la secuenciacion podrian inflar la estimacion en la diversidad de
 - Secuencias cortas o largas (aquellas secuencias en las colas de la campana de la distribucion) resolviendo de este modo errores de los primers  y barcodes.
 - remover secuencias quimericas (Edgar et al)
 
+
+
+> leer discusion de este articulo y referenciar https://onlinelibrary.wiley.com/doi/full/10.1111/j.1462-2920.2010.02193.x
+
 _________
 
 
@@ -25,6 +29,24 @@ _________
 Diversos metodos han sido propuestos para agrupar (a partir de ahora usaremos la terminologia clusters o clustering) secuencias en sus 
 
  A continuacion, presentaremos algunas pruebas importantes desarrolladas para establecer los parametros optimos del *clustering*.
+
+Mothur desempena el análisis de clusters atraves del modulo cluster.split, ademas, la agrupacion y clasifiacion de otus se lleva a cabo con el modulo classify.otu como acontinuacion.:
+
+
+
+``` 
+make.shared(list=current, count=current, label=0.03)
+
+classify.otu(list=current, taxonomy=current, count=current, label=0.03, threshold=80)
+
+ 
+```
+
+# 
+
+vamos a comparar con la prueba con el average, y abortar el resto de los test, debido a la lentitud de losanalisis.
+
+ 
 
 ```bash
 for i in $(seq 0.0 0.002 0.050);
@@ -35,7 +57,7 @@ done | sh
 
 
 
-Y elaboramos una matriz de los resultados
+Elaboramos una matriz de los resultados.
 
 ```bash
 for i in $(seq 0.01 0.002 0.050); do cut -f2 otus_$i/*.unique_list.0.*.cons.taxonomy | sort | uniq -c | sort -n -k2,2 | tail -n +2 | awk '{print $1}' > otus_$i.log; done
@@ -108,4 +130,16 @@ O tambien podriamos ver la prueba de SAD para esta matriz de datos.
 | 0.048  | 9512               | 47.51         |
 | 0.05   | 9341               | 47.65         |
 
- 
+ # notas
+
+
+
+Descripcion de los procesamientos de los barcodes(victor kinin 2010)Reads were quality filtered by applying either the current practice of removing reads with unresolved bases and/or anomalous read length, or quality score-based end- trimming at different stringencies (huse et al 2007)Ramiro logarez et al (2014)
+
+The 95% threshold was selected for all downstream analyses in order to minimize any inflation of diversity estimates [27] caused by remaining tags (if any) with misincorporated nucleotides. In the local community, we defined OTUs as ‘‘abundant’’ when they reached relative abundances above 1% of the tags and ‘‘rare’’ when their abundances were below 0.01%  (mirar el asana para referenciar el análisis de biosfera rara).
+
+In addition, we tested a 97% OTU clustering threshold, and comparable patterns regarding proportions of locally abundant and rare subcommunities were obtained.
+
+hacer un plot de rarefaccion de la comunidad regional (del golfo de mexico) combinando todas las comunidades locales (ie. las estaciones donde se muestreo). ex. In the regional community (combination of local communities), the thresholds for abundant or rare OTUs were >0.1% and <0.001%, respectively. 
+
+Species (OTUs) Abundance Distribution (SAD) for all pooled non-normalized samples (entire regional community) indicating the four fitted models (Null, Preemption, Lognormal & Zipf). The model with the best fit was the Lognormal according to the Akaike's Information Criterion. (B) SADs for all normalized samples separated by \** ..**
