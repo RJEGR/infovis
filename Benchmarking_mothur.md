@@ -140,25 +140,20 @@ done
 
 # 3) Then, produce the match list
 
-for i in $(seq 0.010 0.002 0.050); do echo "srun vsearch --usearch_global lulu_$i/dist.${i}.rep.fasta --db lulu_$i/dist.${i}.rep.fasta --self --id .84 --iddef 1 --userout vsearch.${i}.list.txt -userfields query+target+id --maxaccepts 0 --query_cov .9 --maxhits 10"; done | sh &> vsearch.log &
-
-# 
+for i in $(seq 0.010 0.002 0.050); do srun vsearch --usearch_global lulu_$i/dist.${i}.rep.fasta --db lulu_$i/dist.${i}.rep.fasta --self --id .84 --iddef 1 --userout vsearch.${i}.list.txt -userfields query+target+id --maxaccepts 0 --query_cov .9 --maxhits 10 --threads 96; done | sh 2> vsearch.log &
+# 4) 
 mkdir vsearch
-mv *list.txt ./vsearch
+mv vsearch.*.list.txt ./vsearch
  ```
 
-BLASTn - Alternatively, a matchlist can also be produced with **VSEARCH** with this command  (slow process!!)
+BLASTn - Alternatively, a matchlist can also be produced with **BLASTn** with this command  (slow process!!). Ex.
 
 ```bash
-makeblastdb -in phylo.rep.treein.fasta -parse_seqids -dbtype nucl
+makeblastdb -in lulu_$i/dist.0.010.rep.fasta -parse_seqids -dbtype nucl
 
-blastn -db phylo.rep.treein.fasta -outfmt '6 qseqid sseqid pident' -out blastn_list.txt -qcov_hsp_perc 80 -perc_identity 84 -query phylo.rep.treein.fasta
+blastn -db lulu_$i/dist.0.010.rep.fasta -outfmt '6 qseqid sseqid pident' -out blastn_list.txt -qcov_hsp_perc 80 -perc_identity 84 -query lulu_$i/dist.0.010.rep.fasta
 
 ```
-
-
-
-
 
 # La importancia de un marco de referencia taxonomica
 
