@@ -279,7 +279,8 @@ p1 <- ggplot(data, aes(x=x,y=y))+
         axis.text = element_blank(),
         #axis.ticks = element_blank(),
         panel.background = element_blank()) +
-        coord_cartesian(xlim = c(130, 150), ylim = c(75, 100))
+        coord_cartesian(xlim = c(130, 150), ylim = c(75, 100)) # para la EP
+        # coord_cartesian(xlim = c(160, 175), ylim = c(80, 100)) <-- para KP 
 
 
 p2 <- ggplot(data, aes(x = x)) + stat_density(fill = col1) + geom_rug(col = col1, alpha = 0.1) + theme(panel.background = element_blank()) + xlab("Tamano de lectura (query)") + coord_cartesian(xlim = c(130, 150))
