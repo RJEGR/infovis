@@ -113,7 +113,9 @@ Escribir resumen del siguiente articulo. https://aem.asm.org/content/79/21/6593 
 
 ## LULU: Metodo de pos-agrupamiento de amplicones basado en la distribucion de OTUs
 
+The algorithm is intended as a post-clustering OTU table curation method aimed at removing erroneous OTUs from tables produced by any clustering algorithm e.g., methods used in this study[13](https://www.nature.com/articles/s41467-017-01312-x#ref-CR13),[22](https://www.nature.com/articles/s41467-017-01312-x#ref-CR22),[23](https://www.nature.com/articles/s41467-017-01312-x#ref-CR23),[24](https://www.nature.com/articles/s41467-017-01312-x#ref-CR24), and those implemented in Qiime[28](https://www.nature.com/articles/s41467-017-01312-x#ref-CR28) and Mothur[29](https://www.nature.com/articles/s41467-017-01312-x#ref-CR29), as long as the product is an OTU table and a corresponding file with representative sequences.
 
+The implementation of the algorithm is based on a set of assumptions based on four observations we have previously made when working with HTS of amplified marker genes (a.k.a. metabarcoding) of well-studied organism groups with well-populated reference databases present (i.e., plants, as used for validation here). The first observation is that OTU tables often have more OTUs than expected from biological knowledge of the system under investigation[11](https://www.nature.com/articles/s41467-017-01312-x#ref-CR11). The second observation is that OTU tables often contain low-abundance OTUs, which are taxonomically redundant in the sense that their taxonomic assignment is identical to more abundant OTUs. This pattern may be caused by incomplete reference data and/or insufficient clustering, but can also indicate that the OTU is effectively a methodological artefact. The third observation is that the highest sequence similarity (match rate) of such taxonomically redundant, low-abundance OTUs with any reference sequence is most often low compared to the sequence similarity of more abundant OTUs with the same taxonomic assignment. The fourth observation is that such seemingly redundant and less abundant OTUs almost consistently co-occur (i.e., are present in the same samples) with more abundant OTUs with a better taxonomic assignment. Based on these observations, it can be assumed that the majority of these low-abundant OTUs are in fact methodological and/or analytical errors, or rare (intragenomic) variants, which will cause inflated diversity metrics. Following from this assumption, the LULU algorithm is constructed to iteratively work though the OTU table to flag potential erroneous OTUs by employing the observed patterns of co-occurrence guided by pairwise similarity of centroid sequences of the OTUs. Thus, the algorithm takes advantage of the observed reproducible nature of extra/spurious OTUs and their sequence similarity to more abundant OTUs in the same samples and uses these features to infer their nature as errors (or true—but taxonomically redundant) variants of biological entities already represented in the table. After identification of these extra OTUs, they can be merged with their parent OTUs in order to preserve the total read count and reduce the OTU number of the table to a biologically reasonable level. The resulting table may be subjected to direct species richness metrics and other biodiversity analyses dependent on species-level OTU delimitation.
 
 ```bash
 # get otu rep for LULU TEST BASED ON DISTANCE
@@ -154,6 +156,38 @@ makeblastdb -in lulu_$i/dist.0.010.rep.fasta -parse_seqids -dbtype nucl
 blastn -db lulu_$i/dist.0.010.rep.fasta -outfmt '6 qseqid sseqid pident' -out blastn_list.txt -qcov_hsp_perc 80 -perc_identity 84 -query lulu_$i/dist.0.010.rep.fasta
 
 ```
+
+
+
+Esta semana (y parte de la anterior) estuve probando algunas cosas:
+
+1. Lulu: Cribado de OTUs (potencialmente erróneos) a través de las matrices de co-ocurrencia a lo largo de un grupo de muestras (sea nuestro caso las estaciones de c/ crucero) y matrices de distancia de la similitud entre secuencias (usando vsearch y blastn, o la estrategia de upticlust). 
+
+2. Selección de secuencia representativa de dos maneras:
+
+   1. Distancia de similitud media mínima del cluster de secuencias (Por OTU) ← 
+
+   2. Secuencia representativa por su abundancia (ie. más abundante)Se seleccionó la secuencia representativa del punto (1) debido a que más tarde son comparadas las secuencias de c/ uno de los OTUs entre sí.Esto nos llevó a dos cosas:
+
+      - Implementar vsearch / blastn para re-calcular la similitud entre secuencias a través de un alineamiento de pares de bases (la estrategia de vsearch fue la implementada debido a la rapidez con la que esta concluye)
+
+      - Recuperar la distancia previamente calculada durante el análisis con upticlust para cada una de esas secuencias representativas usando el módulo de mothur get.dist.
+
+      - Comparación de test de mantel par determinar variación de las matrices
+
+        
+
+        Visualización de grafos de distancia de la similitud de secuencias (matrices cuadráticas de distancia)
+
+        
+
+      - Debido a que la serie de datos de distancia es muy grande buscamos reducir las dimensiones basado en la hipótesis de que los datos se agruparán de acuerdo a clusters de los OTUs.  Método PCA y tSNEA pesar de reducir las dimensiones. 
+
+      - La visualización de tantas datos es muy tardado, entonces descifremos el modo de reducir la cantidad de información.El objetivo de lulu es cribar con aquellos taxones raros que inflan la estimación de la alfa diversidad, y su distribución suele estar en alas colas, es decir los k-tones, especialmente los singletones. 
+
+      - La hipótesis es que los singletones se reducirán al “reintegrarse” a los otros abundances en el procesamiento con Lulu (ver funcionamiento del algoritmo). Resultados:Usando el segundo agrupamiento con vsearch se logró visualizar los grafos coloreando los nodos por su clasificación taxonómica. Y haciendo un facet_wrap cada Reino. Esto demora 15-20 minutos en procesarse con aprox. 200 K nodos. 
+
+      - Sin embargo no se revela algun patron interesante.Se visualizó resultados de la reducción de dimensiones con tSNE usando un subset de tres grupos de OTUs (resultado vsearch) pero sin algun patron satisfactorio.Usando 3 OTUs (nuevamente, resultados vsearch). Se logró visualizar el grafo de similitud , en el que la información interactúa de acuerdo a su grupo (ie. OTUs al que corresponde dicho nodo (cada nodo representa una secuencia agrupada en los OTUs); también, se logró etiquetar c/ su asignación a N nivel taxonómico. los resultados muestran 3 grupos ideales de OTUs, sin embargo la clasificación es heterogénea a lo largo de los nodos que se agrupan.Se comparó la alfa diversidad y se demuestra una correlación positiva entre los datos procesados con lulu y los datos ‘crudos’ de mothur.
 
 # La importancia de un marco de referencia taxonomica
 

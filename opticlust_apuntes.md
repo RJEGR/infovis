@@ -44,7 +44,7 @@ classify.otu(list=current, taxonomy=current, count=current, label=0.03, threshol
 
 # 
 
-vamos a comparar con la prueba con el average, y abortar el resto de los test, debido a la lentitud de losanalisis.
+vamos a comparar con la prueba con el average, y abortar el resto de los test, debido a la lentitud de los analisis.
 
  
 
