@@ -299,3 +299,33 @@ grid.arrange(p2, empty, p1, p3,
 
 ```
 
+Segundo visualizacion
+
+```R
+data <- data.frame(x = x[,4], y = x[,12], Identidad = x[,16])
+
+#Assign color variables
+col1 = "#d8e1cf" 
+col2 = "#438484"
+
+# 
+library(ggpubr)
+p <- ggplot(data, aes(x=x, y=y, color=Identidad)) +
+      geom_point() +
+      scale_color_gradient(low = col1, high = col2) +
+      theme(legend.position="bottom",
+            panel.background = element_blank()) +
+      xlab("Tamano de lectura (query)") + ylab("Tamano del alineamiento") + 
+      stat_cor(method = "pearson")
+
+# devtools::install_github("daattali/ggExtra") 
+library(ggExtra)
+
+# with marginal histogram
+ggMarginal(p, type="histogram")
+# marginal density
+ggMarginal(p, type="density")
+# marginal boxplot
+ggMarginal(p, type="boxplot")
+```
+
