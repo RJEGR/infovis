@@ -329,3 +329,77 @@ ggMarginal(p, type="density")
 ggMarginal(p, type="boxplot")
 ```
 
+# Comprobar adaptores en las bases de referencia
+
+En el laboratorio utilizamos dos bases de datos para alinear nuestros contigs, estan son la silva 132 en las que se incluye y no incluye los fragmentos de los primers (base kp y ep, respectivamente). Para corroborar que los primers se conservan o han sido removidos en ambas bases de referencia, utilzaremos cutadapt del mismo modo que lo hicimos con las bibliotecas crudas.
+
+Primero preparamos las bases que estan alineadas del siguiente modo:
+
+```bash
+cat silva132_kp_aln.fasta | sed 's/-//g' |awk '{ print toupper($0) }' > silva132_kp.fasta
+
+```
+
+Y ejecutamos cutadapter con la base kp
+
+```bash
+
+srun ./cutadapt -g TTGTACACACCGCCC -a CCTTCYGCAGGTTCACCTAC -o silva132_kp.fasta.cutadapt silva132_kp.fasta 2> silva132_kp_aln.fasta.cutadapt.log &
+
+# siguiente paso
+cat silva132_kp.fasta | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > silva132_kp.fasta.lengths 
+
+# siguiente paso
+cat silva132_kp.fasta.cutadapt | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > silva132_kp.fasta.cutadapt.lengths
+
+# finalmente
+paste *lengths | awk '{print $1, $2, $4}' > kp.lengths
+```
+
+> Regular 3’ adapter	-a ADAPTER
+> Regular 5’ adapter	-g ADAPTER
+
+Repetimos lo mismo para la siguiente base (ep):
+
+```bash
+cat silva132_ep_v9_aln.fasta | sed 's/-//g' |awk '{ print toupper($0) }' > silva132_ep_v9.fasta
+
+srun ./cutadapt -g TTGTACACACCGCCC -a CCTTCYGCAGGTTCACCTAC -o silva132_ep_v9.fasta.cutadapt silva132_ep_v9.fasta 2> silva132_ep_v9.fasta.cutadapt.log &
+
+# siguiente paso:
+cat silva132_ep_v9.fasta | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }'> silva132_ep_v9.fasta.lengths
+
+# siguiente paso:
+cat silva132_ep_v9.fasta.cutadapt | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > silva132_ep_v9.fasta.cutadapt.lengths
+
+# finalmente
+paste silva132_ep_v9.fasta.cutadapt.lengths silva132_ep_v9.fasta.lengths | awk '{print $1, $2, $4}' > ep.lengths
+
+```
+
+Y cargamos en R
+
+```R
+kp <- read.csv("kp.lengths", sep=" ", header=TRUE)
+colnames(kp) <- c("id", "cutadapt", "raw")
+
+ep <- read.csv("ep.lengths", sep=" ", header=TRUE)
+colnames(ep) <- c("id", "cutadapt", "raw")
+
+
+
+```
+
+Y Visualizamos su distribucion 
+
+```R
+ep$Reference <- "EP"
+kp$Reference <- "KP"
+dataplot <- rbind(ep, kp)
+dataplot <- melt(dataplot)
+
+p <- ggplot(dataplot, aes(value, fill = variable)) + geom_histogram(alpha = 0.7, bins = 200, aes(y = ..ncount..), position = 'identity') + theme_classic()
+p + scale_fill_brewer(direction = -1, palette = "Set1") + facet_wrap(~ Reference)
+```
+
+![](/Users/cigom/Desktop/Screen Shot 2018-10-24 at 2.39.20 PM.png)

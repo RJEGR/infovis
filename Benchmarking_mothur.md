@@ -135,7 +135,7 @@ The match list can be produced with **VSEARCH** with these commands:
 # 1) Parsing the representative sequence with otu labels
 # 2) removes columns from alignments based on a criteria defined by every character is either a '.' or a '-' 
 
-for i in $(seq 0.010 0.002 0.050); 
+for i in $(seq 0.010 0.002 02.050); 
 do
 awk '/^>/{gsub(/[|]/, " "); print ">"$2; next}{print}' lulu_$i/cigom.trim.contigs.good.unique.pick.good.filter.unique.precluster.pick.opti_mcc.unique_list.*.rep.fasta | sed 's/[-, .]//g' > lulu_$i/dist.${i}.rep.fasta;
 done

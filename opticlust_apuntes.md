@@ -143,3 +143,8 @@ In addition, we tested a 97% OTU clustering threshold, and comparable patterns r
 hacer un plot de rarefaccion de la comunidad regional (del golfo de mexico) combinando todas las comunidades locales (ie. las estaciones donde se muestreo). ex. In the regional community (combination of local communities), the thresholds for abundant or rare OTUs were >0.1% and <0.001%, respectively. 
 
 Species (OTUs) Abundance Distribution (SAD) for all pooled non-normalized samples (entire regional community) indicating the four fitted models (Null, Preemption, Lognormal & Zipf). The model with the best fit was the Lognormal according to the Akaike's Information Criterion. (B) SADs for all normalized samples separated by \** ..**
+
+
+
+## semana 2
+
