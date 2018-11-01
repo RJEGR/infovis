@@ -305,14 +305,14 @@ Segundo visualizacion
 data <- data.frame(x = x[,4], y = x[,12], Identidad = x[,16])
 
 #Assign color variables
-col1 = "#d8e1cf" 
-col2 = "#438484"
+col1 = "#d8e1cf" # "#0091ff"
+col2 = "#438484" # "#f0650e"
 
 # 
 library(ggpubr)
 p <- ggplot(data, aes(x=x, y=y, color=Identidad)) +
       geom_point() +
-      scale_color_gradient(low = col1, high = col2) +
+      scale_color_gradient(low = col1, high = col2) + scale_alpha(range = c(.05, .25)) +
       theme(legend.position="bottom",
             panel.background = element_blank()) +
       xlab("Tamano de lectura (query)") + ylab("Tamano del alineamiento") + 
@@ -327,6 +327,8 @@ ggMarginal(p, type="histogram")
 ggMarginal(p, type="density")
 # marginal boxplot
 ggMarginal(p, type="boxplot")
+
+
 ```
 
 # Comprobar adaptores en las bases de referencia
