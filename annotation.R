@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# Rscript --vanilla ~/annotation.R Trinotate.xls;
+# Rscript --vanilla annotation.R Trinotate.xls;
 
 # Loadding package:
 
@@ -97,8 +97,8 @@ htmlwidgets::saveWidget(widget, paste0(file, ".pfam.html"))
 
 #
 data(cogs)
-#download.file("http://eggnogdb.embl.de/download/eggnog_4.5/data/NOG/NOG.annotations.tsv.gz", "NOG.annotations.tsv.gz")
-#system("gunzip NOG.annotations.tsv.gz")
+download.file("http://eggnogdb.embl.de/download/eggnog_4.5/data/NOG/NOG.annotations.tsv.gz", "NOG.annotations.tsv.gz")
+system("gunzip NOG.annotations.tsv.gz")
 egg <- read.table("NOG.annotations.tsv", sep="\t", stringsAsFactors=FALSE, quote="")
 names(egg) <- c("db", "nog", "proteins", "species", "class", "description")
 
@@ -106,6 +106,7 @@ names(egg) <- c("db", "nog", "proteins", "species", "class", "description")
 
 plot_NOGs(x, "transcript_id")
 
+system("rm NOG.annotations.tsv")
 # or =======
 #y <- unique(x[!is.na(eggnog), .(gene_id, eggnog)])
 #xlabel <- "Number of genes"
