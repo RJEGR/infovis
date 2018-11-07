@@ -133,7 +133,11 @@ bar <- ggbarplot(plotgos, "name", "transcripts",
           color = "ontology",
           xlab = "Ontology",
           ylab = "Number of transcripts",
-   palette = c("#00AFBB", "#E7B800", "#FC4E07"))
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",           # Sort the value in dscending order
+          sort.by.groups = TRUE)
+   #palette = c("#00AFBB", "#E7B800", "#FC4E07"))
+
 
 #png(filename = paste0(file, 'plot_NOGs.png'), height = 28,width = 36,res = 300,units = "cm")
 bar + theme(axis.text.x = element_text(angle = 75, hjust = 1, size = 7))
@@ -145,26 +149,36 @@ names(genus) <- c("Genus", "Number")
 genus <- genus[order(-genus$Number), ]
 genus[(Number <= 10 ), Genus := "Others"]
 
-library(ggplot2)
-
-ggplot(genus, aes(x = reorder(Genus, -Number), y = Number)) +
- geom_bar(stat="identity", fill = "steelblue") +
- coord_flip() + xlab("Genus") + ylab("Number of ORF") +
- theme_minimal()
+#library(ggplot2)
+#ggplot(genus, aes(x = reorder(Genus, -Number), y = Number)) +
+# geom_bar(stat="identity", fill = "steelblue") +
+# coord_flip() + xlab("Genus") + ylab("Number of ORF") +
+# theme_minimal()
 
 # ========
-genus <- NULL
-genus <- data.table(table(sblastx$genus))
-names(genus) <- c("Genus", "Number")
-genus <- genus[order(-genus$Number), ]
-genus[(Number <= 10 ), Genus := "Others"]
+xgenus <- data.table(table(sblastx$genus))
+names(xgenus) <- c("Genus", "Number")
+xgenus <- xgenus[order(-xgenus$Number), ]
+xgenus[(Number <= 10 ), Genus := "Others"]
 
-library(ggplot2)
 
-ggplot(genus, aes(x = reorder(Genus, -Number), y = Number)) +
- geom_bar(stat="identity", fill = "steelblue") +
- coord_flip() + xlab("Genus") + ylab("Number of transcripts") +
- theme_minimal()
+xgenus$Type <-"Transcript"
+genus$Type <-"ORF"
+
+plot <- rbind(genus, xgenus)
+
+ggbarplot(plot, x = "Genus", y = "Number",
+          fill = "Type",               # change fill color by cyl
+          color = "Type",            # Set bar border colors to white
+          palette = "Paired",            # jco journal color palett. see ?ggpar
+          group = "Type",
+          sort.by.groups = TRUE,      # Sort inside each group
+          x.text.angle = 90,           # Rotate vertically x axis texts
+          ylab = "Number of annotations",
+          rotate = TRUE,
+          ggtheme = theme_minimal()
+          #facet.by = "Type"
+          )
  #geom_text(data=subset(genus, Genus=="Others"), aes(label=sum(Number)), hjust = 0, vjust = 1)
 
 paste0("Summary done from ", file, " file")
