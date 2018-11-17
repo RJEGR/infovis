@@ -1,7 +1,10 @@
 #!/usr/bin/env Rscript
-# Rscript --vanilla annotation.R Trinotate.xls;
 
-# Loadding package:
+# Use:  Rscript --vanilla annotation.R Trinotate.xls;
+
+# ===============
+# Loading package:
+# ===============
 
 if (!require('devtools')) {
     install.packages("devtools", dep=TRUE, repos='http://cran.us.r-project.org')
@@ -20,11 +23,18 @@ if (!require('devtools')) {
      } else
     if (!require("ggplot2")) {
         install.packages('ggplot2', dep=TRUE, repos='http://cran.us.r-project.org')
+    } else
+    if (!require("dplyr")) {
+        install.packages('dplyr', dep=TRUE, repos='http://cran.us.r-project.org')
     }
     
+# Loadding data
+args = commandArgs(trailingOnly=TRUE)
 
-args = commandArgs()
-file = args[7]
+if (length(args)==0) {
+  file <- "Trinotate.xls"
+} else 
+  file = args[1]
 
 paste0("Using ", file, " as input file")
 
@@ -52,9 +62,8 @@ split_blast <- function (x, hit = "sprot_Top_BLASTX_hit")
     message(nrow(x1), " ", hit, " annotations")
     data.table(x1)
 }
-# ====
 
-library(trinotateR)
+# ====
 
 x <- read_trinotate(file)
 summary_trinotate(x)
@@ -71,30 +80,6 @@ sblastx <- summary_blast(blastx)
 blastp <- split_blast(x, "sprot_Top_BLASTP_hit")
 sblastp <- summary_blast(blastp)
 
-library(DT)
-
-z <- data.frame(spfam)
-z$pfam <- paste0('<a href="http://pfam.xfam.org/family/', z$pfam, '">', z$pfam,  '</a>')
-
-widget <- datatable(
-  z, 
-  escape=1,
-  extensions = 'Buttons', options = list(
-    pageLength = 25,  
-    dom = 'Bfrtip',
-    buttons = 
-      list('copy', 'print', list(
-        extend = 'collection',
-        buttons = c('csv', 'excel'),
-        text = 'Download'
-      ))
-    
-  )
-)
-
-htmlwidgets::saveWidget(widget, paste0(file, ".pfam.html"))
-
-
 #
 data(cogs)
 download.file("http://eggnogdb.embl.de/download/eggnog_4.5/data/NOG/NOG.annotations.tsv.gz", "NOG.annotations.tsv.gz")
@@ -107,21 +92,6 @@ names(egg) <- c("db", "nog", "proteins", "species", "class", "description")
 plot_NOGs(x, "transcript_id")
 
 system("rm NOG.annotations.tsv")
-# or =======
-#y <- unique(x[!is.na(eggnog), .(gene_id, eggnog)])
-#xlabel <- "Number of genes"
-
-#nogs <- gsub("(.*)\\^.*", "\\1", y$eggnog)
-#n <- match(nogs, eggnog$nog)
-#y <- table(unlist(strsplit(eggnog$class[n], "")))
-#y1 <- rev(y[order(match(names(y), cogs$code))])
-#y1 <- y1[-1]
-#n <- match(names(y1), cogs$code)
-
-#op <- par(mar = c(4, 25, 1, 1), mgp = c(2, 0.5, 0))
-#barplot(y1, col = cogs$clrs[n], horiz = TRUE, names.arg = paste(cogs$code[n],
-#        cogs$name[n], sep = ". "), las = 1, xlab = xlabel)
-#par(op)
 
 # ====
 library(ggpubr)
@@ -179,8 +149,97 @@ ggbarplot(plot, x = "Genus", y = "Number",
           ggtheme = theme_minimal()
           #facet.by = "Type"
           )
+ 
  #geom_text(data=subset(genus, Genus=="Others"), aes(label=sum(Number)), hjust = 0, vjust = 1)
 
-paste0("Summary done from ", file, " file")
+
+x <- blastx$identity
+y <- blastp$identity
+
+
+h1 <- hist(x, breaks=100, col=rgb(1,0,0,1/4), 
+                xlab="Identity of aligment (Swissprot - blastp hits)", 
+                main="Distribution of identity")
+
+# Add a Normal Curve (Thanks to Peter Dalgaard)
+xfit<-seq(min(x),max(x),length=100) 
+yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
+yfit <- yfit*diff(h1$mids[1:2])*length(x) 
+
+# plot( h1, col=rgb(1,0,0,1/4), xlab="Identity of aligment (Swissprot - blastp hits)", main="Distribution of identity")
+# plot( h2, col=rgb(1,0,0,1/6), add=T) 
+lines(xfit, yfit, col="blue", lwd=2)
+
+
+
+z <- data.frame(spfam)
+z$pfam <- paste0('<a href="http://pfam.xfam.org/family/', z$pfam, '">', z$pfam,  '</a>')
+
+# ================
+# Save image first
+save.image(file = paste0(file, ".RData"))
+
+# ======================
+# Save annotation outputs
+# ======================
+
+write.table(blastx, file=paste0(file, ".blastx.tsv"), sep="\t", row.names = F, col.names = T)
+write.table(go, file=paste0(file, ".go.tsv"), sep="\t", row.names = F, col.names = T)
+
+
+widget <- datatable(
+  z, 
+  escape=1,
+  extensions = 'Buttons', options = list(
+    pageLength = 25,  
+    dom = 'Bfrtip',
+    buttons = 
+      list('copy', 'print', list(
+        extend = 'collection',
+        buttons = c('csv', 'excel'),
+        text = 'Download'
+      ))
+    
+  )
+)
+
+htmlwidgets::saveWidget(widget, paste0(file, ".pfam.html"))
+
+
+paste0("\nSummary done from ", file, " file")
 
 quit(save = "no")
+
+
+
+
+# =============
+# ==== subset list of differential gene list... next release
+args = commandArgs(trailingOnly=TRUE)
+
+if (length(args)==0) {
+  stop()
+} else 
+  data = args[2]
+# checar los scritps de diffExp de trinity para saber como hacer el brake stop
+
+read.csv(data, sep = "\t", header = FALSE) %>%
+            as.tibble() %>%
+            rename(transcript = X1) -> DiffEx
+
+# DiffEx <- data.frame(transcript = sample(blastx$transcript, 40))
+
+
+
+blastx %>%
+    group_by(transcript) %>%
+    inner_join(DiffEx, by = "transcript") -> DE_swiss
+
+go %>%
+    group_by(transcript) %>%
+    inner_join(DiffEx, by = "transcript") -> DE_GO
+
+pfam %>%
+    group_by(transcript) %>%
+    inner_join(DiffEx, by = "transcript") -> DE_pfam
+
