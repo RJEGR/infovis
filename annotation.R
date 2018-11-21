@@ -2,6 +2,11 @@
 
 # Use:  Rscript --vanilla annotation.R Trinotate.xls;
 
+# ================
+# Defining outputs
+# ================
+outpath <- getwd()
+
 # ===============
 # Loading package:
 # ===============
@@ -183,8 +188,8 @@ save.image(file = paste0(file, ".RData"))
 # Save annotation outputs
 # ======================
 
-write.table(blastx, file=paste0(file, ".blastx.tsv"), sep="\t", row.names = F, col.names = T)
-write.table(go, file=paste0(file, ".go.tsv"), sep="\t", row.names = F, col.names = T)
+write.table(blastx, file=paste0(outpath, "/", file, ".blastx.tsv"), sep="\t", row.names = F, col.names = T)
+write.table(go, file=paste0(outpath, "/", file, ".go.tsv"), sep="\t", row.names = F, col.names = T)
 
 
 widget <- datatable(
