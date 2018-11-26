@@ -87,8 +87,7 @@ sblastp <- summary_blast(blastp)
 
 #
 data(cogs)
-download.file("http://eggnogdb.embl.de/download/eggnog_4.5/data/NOG/NOG.annotations.tsv.gz", "NOG.annotations.tsv.gz")
-system("gunzip NOG.annotations.tsv.gz")
+download.file("https://raw.githubusercontent.com/RJEGR/infovis/master/NOG.annotations.tsv", "NOG.annotations.tsv")
 egg <- read.table("NOG.annotations.tsv", sep="\t", stringsAsFactors=FALSE, quote="")
 names(egg) <- c("db", "nog", "proteins", "species", "class", "description")
 
