@@ -148,3 +148,4 @@ Species (OTUs) Abundance Distribution (SAD) for all pooled non-normalized sample
 
 ## semana 2
 
+se cierra la sesion 
