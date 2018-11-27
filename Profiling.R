@@ -28,19 +28,23 @@ if (length(args)==0) {
     data = as.matrix(data)
 }
 #
+outpath <- getwd()
 go <- annot.env$go
 
 # testing ...
-load('Trinotate.xls.RData')
-pathfiles <- "DIFF_EXP/DESeq2.30882.dir/"
-subset <- list.files(path=pathfiles, pattern="UP.subset")
-matrix <- list.files(path=pathfiles, pattern="matrix")
-
-data = read.table(paste0(pathfiles, matrix[2]), header=T, com='', row.names=1, check.names=F, sep='\t')
+#load('Trinotate.xls.RData')
+#pathfiles <- "DIFF_EXP/DESeq2.30882.dir/"
+#subset <- list.files(path=pathfiles, pattern="UP.subset")
+#matrix <- list.files(path=pathfiles, pattern="matrix")
+#data = read.table(paste0(pathfiles, matrix[2]), header=T, com='', row.names=1, check.names=F, sep='\t')
 #####
 
 genesList <- rownames(data)
 genesListgenesList <- go[go$transcript %in% genesList, ]
+
+write.table(go, file=paste0(outpath, "/", "DGE.annot.tsv"), sep="\t", row.names = F, col.names = T)
+
+quit(save= 'no')
 
 gene.df <- clusterProfiler::bitr(genesList, fromType = "GOID",
         toType = c("ENSEMBL", "SYMBOL"),
