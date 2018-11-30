@@ -98,31 +98,33 @@ plot_NOGs(x, "transcript_id")
 system("rm NOG.annotations.tsv")
 
 # ====
-library(ggpubr)
 
-plotgos <- head(gos[order(-gos$transcripts),], 80)
+plotgos <- head(gos[order(-gos$transcripts),], 100)
 
 bar <- ggbarplot(plotgos, "name", "transcripts",
           fill = "ontology", 
           color = "ontology",
-          xlab = "Ontology",
+          xlab = "Name",
           ylab = "Number of transcripts",
           palette = "jco",            # jco journal color palett. see ?ggpar
           sort.val = "asc",           # Sort the value in dscending order
-          sort.by.groups = TRUE)
+          sort.by.groups = TRUE,
+          title = "Highest ontologies (top 100)")
+          
    #palette = c("#00AFBB", "#E7B800", "#FC4E07"))
 
 
 #png(filename = paste0(file, 'plot_NOGs.png'), height = 28,width = 36,res = 300,units = "cm")
-bar + theme(axis.text.x = element_text(angle = 75, hjust = 1, size = 7))
+bar + theme(axis.text.x = element_text(angle = 75, hjust = 1, size = 5))
 #dev.off()
 
 # ====== blastp or blastp
 genus <- data.table(table(sblastp$genus))
 names(genus) <- c("Genus", "Number")
 genus <- genus[order(-genus$Number), ]
-genus[(Number <= 10 ), Genus := "Others"]
+genus[(Number <= round(mean(genus$Number))), Genus := "Others"]
 
+length(table(genus$Genus))
 #library(ggplot2)
 #ggplot(genus, aes(x = reorder(Genus, -Number), y = Number)) +
 # geom_bar(stat="identity", fill = "steelblue") +
@@ -133,8 +135,8 @@ genus[(Number <= 10 ), Genus := "Others"]
 xgenus <- data.table(table(sblastx$genus))
 names(xgenus) <- c("Genus", "Number")
 xgenus <- xgenus[order(-xgenus$Number), ]
-xgenus[(Number <= 10 ), Genus := "Others"]
-
+xgenus[(Number <= round(mean(xgenus$Number))), Genus := "Others"]
+length(table(xgenus$Genus))
 
 xgenus$Type <-"Transcript"
 genus$Type <-"ORF"
@@ -152,29 +154,41 @@ ggbarplot(plot, x = "Genus", y = "Number",
           rotate = TRUE,
           ggtheme = theme_minimal()
           #facet.by = "Type"
-          )
+          ) + theme(axis.text.y = element_text(hjust = 1, size = 7))
  
  #geom_text(data=subset(genus, Genus=="Others"), aes(label=sum(Number)), hjust = 0, vjust = 1)
 
 
-x <- blastx$identity
-y <- blastp$identity
+x <- data.frame(Identity=blastx$identity, Type="Transcript")
+y <- data.frame(Identity=blastp$identity, Type="ORF")
 
+data <- rbind(x,y)
 
-h1 <- hist(x, breaks=100, col=rgb(1,0,0,1/4), 
-                xlab="Identity of aligment (Swissprot - blastp hits)", 
-                main="Distribution of identity")
+ggplot(data, aes(Identity, fill = Type)) + 
+        geom_histogram(bins = 100, alpha = 0.7, aes(y = ..density..), position = 'identity') + 
+        theme_classic() +
+        scale_fill_brewer(direction = -1, palette = "Paired") + 
+        stat_function(fun=dnorm,
+                     color="red",
+                     args=list(mean=mean(data$Identity, na.rm = TRUE), 
+                              sd=sd(data$Identity, na.rm = TRUE))) +  
+        scale_x_continuous("Identity of the aligment")
+
+# x <- blastx$identity
+# y <- blastp$identity
+
+# h1 <- hist(x, breaks=100, col=rgb(1,0,0,1/4), 
+#                xlab="Identity of aligment (Swissprot - blastp hits)", 
+#                main="Distribution of identity")
 
 # Add a Normal Curve (Thanks to Peter Dalgaard)
-xfit<-seq(min(x),max(x),length=100) 
-yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
-yfit <- yfit*diff(h1$mids[1:2])*length(x) 
+# xfit<-seq(min(x),max(x),length=100) 
+# yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
+# yfit <- yfit*diff(h1$mids[1:2])*length(x) 
 
 # plot( h1, col=rgb(1,0,0,1/4), xlab="Identity of aligment (Swissprot - blastp hits)", main="Distribution of identity")
 # plot( h2, col=rgb(1,0,0,1/6), add=T) 
-lines(xfit, yfit, col="blue", lwd=2)
-
-
+#lines(xfit, yfit, col="blue", lwd=2)
 
 z <- data.frame(spfam)
 z$pfam <- paste0('<a href="http://pfam.xfam.org/family/', z$pfam, '">', z$pfam,  '</a>')
@@ -210,40 +224,6 @@ widget <- datatable(
 htmlwidgets::saveWidget(widget, paste0(file, ".pfam.html"))
 
 
-paste0("\nSummary done from ", file, " file")
+cat("\nSummary done from ", file, " file\n")
 
 quit(save = "no")
-
-
-
-
-# =============
-# ==== subset list of differential gene list... next release
-args = commandArgs(trailingOnly=TRUE)
-
-if (length(args)==0) {
-  stop()
-} else 
-  data = args[2]
-# checar los scritps de diffExp de trinity para saber como hacer el brake stop
-
-read.csv(data, sep = "\t", header = FALSE) %>%
-            as.tibble() %>%
-            rename(transcript = X1) -> DiffEx
-
-# DiffEx <- data.frame(transcript = sample(blastx$transcript, 40))
-
-
-
-blastx %>%
-    group_by(transcript) %>%
-    inner_join(DiffEx, by = "transcript") -> DE_swiss
-
-go %>%
-    group_by(transcript) %>%
-    inner_join(DiffEx, by = "transcript") -> DE_GO
-
-pfam %>%
-    group_by(transcript) %>%
-    inner_join(DiffEx, by = "transcript") -> DE_pfam
-

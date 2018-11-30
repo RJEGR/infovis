@@ -1,35 +1,62 @@
 #!/usr/bin/env Rscript
 
 # ========
-# Reading RData
+# Reading Data
 # ========
-# https://www.r-bloggers.com/safe-loading-of-rdata-files-2/
 
 rm(list=ls())
-.LoadToEnvironment <- function(RData, env = new.env()){
-  load(RData, env)
-  return(env) 
-}
-annot.env <- .LoadToEnvironment('Trinotate.xls.RData')
 
-
-# ==============
-#  Reading DifExp list
-# ==============
+# ========
 
 args = commandArgs(trailingOnly=TRUE)
 
-
 if (length(args)==0) {
-  stop("!!!\n A matrix of Differential genes Expressed needed, please input in the code as follow: \nRscript Profiling.R diffExpr.*.matrix .\n", call.=FALSE)
+  stop("!!!\n A MATRIX OF DGE AND RDATA FROM ANNOTATION STEP IS NEEDED. 
+         PLEASE, INPUT BOTH FILES IN THE SYNTAXIS AS FOLLOW EXAMPLE:\n
+         Rscript --vanilla Profiling.R Trinotate.xls.RData diffExpr.matrix .\n", call.=FALSE)
 } else {
-    print('Reading matrix file.')
-    data = read.table(arg[1], header=T, com='', row.names=1, check.names=F, sep='\t')
-    data = as.matrix(data)
+  .LoadToEnvironment <- function(RData, env = new.env()){
+  load(RData, env)
+  return(env)  # # https://www.r-bloggers.com/safe-loading-of-rdata-files-2/
 }
-#
-outpath <- getwd()
+  print('Reading files.')
+  annot.env <- .LoadToEnvironment(args[1])
+  data = read.table(args[2], header=T, com='', row.names=1, check.names=F, sep='\t', stringsAsFactors = FALSE)
+  #data$transcript <- rownames(data)
+  #data = as.matrix(data)
+  
+}
+
+# ========================
+# Defining variables (some)
+# ========================
+
 go <- annot.env$go
+blastx <- annot.env$blastx
+pfam <- annot.env$pfam
+outpath <- getwd()
+
+# quit(save= 'no')
+
+# ===============
+# Loading package
+# ================
+if (!require("dplyr")) { 
+        install.packages('dplyr', dep=TRUE, repos='http://cran.us.r-project.org') 
+  } else
+  if (!require("purrr")) {
+      install.packages('purrr', dep=TRUE, repos='http://cran.us.r-project.org')
+   } else
+  if (!require("tibble")) {
+      install.packages('tibble', dep=TRUE, repos='http://cran.us.r-project.org')
+   } else
+  if (!require("reshape2")) {
+      install.packages('reshape2', dep=TRUE, repos='http://cran.us.r-project.org')
+   }  else
+  if (!require("ggplot2")) {
+      install.packages('ggplot2', dep=TRUE, repos='http://cran.us.r-project.org')
+   }
+
 
 # testing ...
 #load('Trinotate.xls.RData')
@@ -38,6 +65,29 @@ go <- annot.env$go
 #matrix <- list.files(path=pathfiles, pattern="matrix")
 #data = read.table(paste0(pathfiles, matrix[2]), header=T, com='', row.names=1, check.names=F, sep='\t')
 #####
+
+data = sample(rownames(data), 10)
+
+blastx %>%
+    group_by(transcript) %>%
+    inner_join(data, by = "transcript") -> DE_swiss
+
+go %>%
+    group_by(transcript) %>%
+    inner_join(data, by = "transcript") -> DE_GO
+
+pfam %>%
+    group_by(transcript) %>%
+    inner_join(data, by = "transcript") -> DE_pfam
+
+head(data)
+
+DE_pfam
+DE_GO
+
+quit(save = 'no')
+
+
 
 genesList <- rownames(data)
 genesListgenesList <- go[go$transcript %in% genesList, ]
