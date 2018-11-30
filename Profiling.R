@@ -10,7 +10,7 @@ rm(list=ls())
 
 args = commandArgs(trailingOnly=TRUE)
 
-if (length(args)==0) {
+if (length(args)<2) {
   stop("!!!\n A MATRIX OF DGE AND RDATA FROM ANNOTATION STEP IS NEEDED. 
          PLEASE, INPUT BOTH FILES IN THE SYNTAXIS AS FOLLOW EXAMPLE:\n
          Rscript --vanilla Profiling.R Trinotate.xls.RData diffExpr.matrix .\n", call.=FALSE)
@@ -21,12 +21,12 @@ if (length(args)==0) {
 }
   print('Reading files.')
   annot.env <- .LoadToEnvironment(args[1])
-  data = read.table(args[2], header=T, com='', row.names=1, check.names=F, sep='\t', stringsAsFactors = FALSE)
-  #data$transcript <- rownames(data)
+  file = args[2]
+  data = read.table(file, header=T, com='', row.names=1, check.names=F, sep='\t', stringsAsFactors = FALSE)
+  data$transcript <- rownames(data)
   #data = as.matrix(data)
   
 }
-
 # ========================
 # Defining variables (some)
 # ========================
@@ -34,6 +34,8 @@ if (length(args)==0) {
 go <- annot.env$go
 blastx <- annot.env$blastx
 pfam <- annot.env$pfam
+x <- annot.env$x
+
 outpath <- getwd()
 
 # quit(save= 'no')
@@ -41,53 +43,45 @@ outpath <- getwd()
 # ===============
 # Loading package
 # ================
-if (!require("dplyr")) { 
-        install.packages('dplyr', dep=TRUE, repos='http://cran.us.r-project.org') 
-  } else
-  if (!require("purrr")) {
-      install.packages('purrr', dep=TRUE, repos='http://cran.us.r-project.org')
-   } else
-  if (!require("tibble")) {
-      install.packages('tibble', dep=TRUE, repos='http://cran.us.r-project.org')
-   } else
-  if (!require("reshape2")) {
-      install.packages('reshape2', dep=TRUE, repos='http://cran.us.r-project.org')
-   }  else
-  if (!require("ggplot2")) {
-      install.packages('ggplot2', dep=TRUE, repos='http://cran.us.r-project.org')
-   }
 
+.cran_packages <- c('dplyr', 'purrr', 'tibble', 'reshape2', 'ggplot2')
 
-# testing ...
-#load('Trinotate.xls.RData')
-#pathfiles <- "DIFF_EXP/DESeq2.30882.dir/"
-#subset <- list.files(path=pathfiles, pattern="UP.subset")
-#matrix <- list.files(path=pathfiles, pattern="matrix")
-#data = read.table(paste0(pathfiles, matrix[2]), header=T, com='', row.names=1, check.names=F, sep='\t')
-#####
+.inst <- .cran_packages %in% installed.packages()
+if(any(!.inst)) {
+   install.packages(.cran_packages[!.inst], dep=TRUE, repos='http://cran.us.r-project.org')
+}
 
-data = sample(rownames(data), 10)
+# Load packages into session, and print package version
+sapply(c(.cran_packages), require, character.only = TRUE)
+
+# =================
+# Filtering dataset
+# =================
+
+#data = data.frame(transcript=sample(rownames(data), 10, replace = TRUE))
 
 blastx %>%
     group_by(transcript) %>%
-    inner_join(data, by = "transcript") -> DE_swiss
+    inner_join(data, by = "transcript") -> DGE_swiss
 
 go %>%
     group_by(transcript) %>%
-    inner_join(data, by = "transcript") -> DE_GO
+    inner_join(data, by = "transcript") -> DGE_GO
 
 pfam %>%
     group_by(transcript) %>%
-    inner_join(data, by = "transcript") -> DE_pfam
+    inner_join(data, by = "transcript") -> DGE_pfam
 
-head(data)
 
-DE_pfam
-DE_GO
+write.table(DGE_pfam, file=paste0(outpath, "/", file, ".blastx.tsv"), sep="\t", row.names = F, col.names = T)
+write.table(DGE_GO, file=paste0(outpath, "/", file, ".go.tsv"), sep="\t", row.names = F, col.names = T)
+write.table(DGE_pfam, file=paste0(outpath, "/", file, ".pfam.tsv"), sep="\t", row.names = F, col.names = T)
+
+
+cat("\nAnnotation tables saved!!!\n")
+
 
 quit(save = 'no')
-
-
 
 genesList <- rownames(data)
 genesListgenesList <- go[go$transcript %in% genesList, ]

@@ -41,7 +41,7 @@ if (length(args)==0) {
 } else 
   file = args[1]
 
-paste0("Using ", file, " as input file")
+cat("\nUsing", file, "as input file\n")
 
 # ==== Create a modified function
 split_blast <- function (x, hit = "sprot_Top_BLASTX_hit")
@@ -77,13 +77,17 @@ pfam <- split_pfam(x)
 spfam <- summary_pfam(pfam)
 
 go <- split_GO(x)
-gos <- summary_GO(go)
+#gos <- summary_GO(go)
 
 blastx <- split_blast(x, "sprot_Top_BLASTX_hit")
 sblastx <- summary_blast(blastx)
 
 blastp <- split_blast(x, "sprot_Top_BLASTP_hit")
 sblastp <- summary_blast(blastp)
+
+
+cat("\nRibosomal unit reported in the assembly:\n")
+na.exclude(top_table(x, "RNAMMER", n = 10))
 
 #
 data(cogs)
@@ -124,7 +128,7 @@ names(genus) <- c("Genus", "Number")
 genus <- genus[order(-genus$Number), ]
 genus[(Number <= round(mean(genus$Number))), Genus := "Others"]
 
-length(table(genus$Genus))
+#length(table(genus$Genus))
 #library(ggplot2)
 #ggplot(genus, aes(x = reorder(Genus, -Number), y = Number)) +
 # geom_bar(stat="identity", fill = "steelblue") +
@@ -136,7 +140,7 @@ xgenus <- data.table(table(sblastx$genus))
 names(xgenus) <- c("Genus", "Number")
 xgenus <- xgenus[order(-xgenus$Number), ]
 xgenus[(Number <= round(mean(xgenus$Number))), Genus := "Others"]
-length(table(xgenus$Genus))
+#length(table(xgenus$Genus))
 
 xgenus$Type <-"Transcript"
 genus$Type <-"ORF"
@@ -159,10 +163,10 @@ ggbarplot(plot, x = "Genus", y = "Number",
  #geom_text(data=subset(genus, Genus=="Others"), aes(label=sum(Number)), hjust = 0, vjust = 1)
 
 
-x <- data.frame(Identity=blastx$identity, Type="Transcript")
+xy <- data.frame(Identity=blastx$identity, Type="Transcript")
 y <- data.frame(Identity=blastp$identity, Type="ORF")
 
-data <- rbind(x,y)
+data <- rbind(xy,y)
 
 ggplot(data, aes(Identity, fill = Type)) + 
         geom_histogram(bins = 100, alpha = 0.7, aes(y = ..density..), position = 'identity') + 
