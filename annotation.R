@@ -68,16 +68,53 @@ split_blast <- function (x, hit = "sprot_Top_BLASTX_hit")
     data.table(x1)
 }
 
-# ====
+# ==== Read trinotate format
 
 x <- read_trinotate(file)
 summary_trinotate(x)
+
+# Summary data usage
+
+summary.tbl <- summary_trinotate(x)
+summary.tbl <- summary.tbl[summary.tbl[1] > 0,][1]
+ggdata <- data.frame(x=rownames(summary.tbl), y=summary.tbl$unique)
+
+ggdata %>%
+ arrange(desc(y)) %>%
+ mutate(x=factor(x,x)) -> ggdata
+
+# step 2 
+
+data.usage <- c("transcript_id","sprot_Top_BLASTX_hit", "sprot_Top_BLASTP_hit", "Pfam", "gene_ontology_blast", "eggnog")
+
+p <- ggplot(ggdata, aes(x=x, y=y)) +
+  geom_segment( aes(x=x, xend=x, y=0, yend=y ), 
+                color = ifelse(ggdata$x %in% data.usage, "orange", "grey"), 
+                size = ifelse(ggdata$x %in% data.usage, 1.3, 0.7) ) +
+  geom_point( color = ifelse(ggdata$x %in% data.usage, "orange", "grey"), 
+              size=ifelse(ggdata$x %in% data.usage, 5, 2) ) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    legend.position="none",
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  xlab("") +
+  ylab("Number of Sequences") +
+  ggtitle("Unigenes Data distribution \nData usage through this analysis is colored with orange")
+
+
+print(p)
+
+# Split data usage
 
 pfam <- split_pfam(x)
 spfam <- summary_pfam(pfam)
 
 go <- split_GO(x)
-#gos <- summary_GO(go)
+gos <- summary_GO(go)
 
 blastx <- split_blast(x, "sprot_Top_BLASTX_hit")
 sblastx <- summary_blast(blastx)
@@ -177,7 +214,8 @@ ggplot(data, aes(Identity, fill = Type)) +
                      args=list(mean=mean(data$Identity, na.rm = TRUE), 
                               sd=sd(data$Identity, na.rm = TRUE))) +  
         scale_x_continuous("Identity of the aligment")
-
+#geom_histogram(binwidth = 2.5)+
+#      geom_density(aes(y=2.5 * ..count..)) <--- para emparejar ambos, histograma y densidad
 # x <- blastx$identity
 # y <- blastp$identity
 

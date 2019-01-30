@@ -22,9 +22,14 @@ if (length(args)<2) {
   print('Reading files.')
   annot.env <- .LoadToEnvironment(args[1])
   file = args[2]
-  data = read.table(file, header=T, com='', row.names=1, check.names=F, sep='\t', stringsAsFactors = FALSE)
-  data$transcript <- rownames(data)
-  #data = as.matrix(data)
+  y <- read.table(file, header=T, com='', row.names=1, check.names=F, sep='\t', stringsAsFactors = FALSE)
+  data <- y # restore before doing various data transformations
+  data <- log2(data+1)
+  data <- as.matrix(data) # convert to matrix
+  data <- t(scale(t(data), scale=F)) # Centering rows
+  data <- as.data.frame(data)
+  data$transcript <- rownames(y)
+
   
 }
 # ========================
@@ -33,12 +38,11 @@ if (length(args)<2) {
 
 go <- annot.env$go
 blastx <- annot.env$blastx
+blastp <- annot.env$blastp
 pfam <- annot.env$pfam
 x <- annot.env$x
 
 outpath <- getwd()
-
-# quit(save= 'no')
 
 # ===============
 # Loading package
@@ -82,6 +86,46 @@ cat("\nAnnotation tables saved!!!\n")
 
 
 quit(save = 'no')
+
+DGE_swiss %>%
+        select_if(is.numeric) -> Exp
+
+DGE_swiss %>%
+        summarise(identity = identity > 50) %>%
+
+        select(transcript, name, uniprot) -> annot
+
+library(RColorBrewer)
+library(superheat)
+
+superheat(data[-ncol(data)],
+          # retain original order of rows/cols
+          pretty.order.rows = TRUE,
+          pretty.order.cols = TRUE,
+          row.dendrogram = TRUE,
+          bottom.label.text.angle = 90,
+          row.title = "Differential Expressed",
+          column.title = "Samples",
+          # change the grid color
+          grid.hline.col = "white",
+          grid.vline.col = "white",
+          left.label.col = "white",
+          bottom.label.col = "white",
+          heat.pal = brewer.pal(n = 9, name = "Purples"))
+
+
+cname <- paste0("Sample", 1:ncol(data[-1]))
+cname <- paste0("Gene", 1:nrow(data[-1]))
+
+rnames <- aggragate()
+aggreg <- aggregate(ftest, list(ftestBestID), sum)
+
+superheat(data[-ncol(data)],
+        pretty.order.rows = TRUE,
+        label.col = cname)
+
+left.label
+bottom.label
 
 genesList <- rownames(data)
 genesListgenesList <- go[go$transcript %in% genesList, ]
