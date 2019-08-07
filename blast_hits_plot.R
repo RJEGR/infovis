@@ -313,6 +313,9 @@ dev.off()
 
 # blast distribution hits plot ----
 ggblast <- function(blast_out, num_hit){
+  require(zoo)
+  require(RColorBrewer)
+  require(dplyr)
   # usage: ggblast(blastout=bnout, 　     # blast結果data.frame
   #                num_query=c(1,3,5),    # uniqueなqueryの番号、もしくはid
   #                num_hit=10             # top10
@@ -579,8 +582,16 @@ superheat(select(adj_data, -total, -name, -pident, -qcovs, -Pvals, -FDR),
 # or
 dev.off()
 
-ggplot(adj_data, aes(x=pident, y=qcovs)) +
-  geom_point(aes(color = Pvals , size = FDR), alpha = 0.7)
+png(paste0(path,"/", "anova_genes_identity.png"), units="px", width=2000, height=1400, res=400)
+
+p <- ggplot() +
+  geom_density(data = reshape2::melt(select(adj_data, pident, qcovs)),
+               mapping = aes(x = value,
+                             y = ..count..), color = "grey") +
+  labs(x = "Percent", y = "Freq")
+
+p + facet_wrap( ~ variable, scales = "free") + theme_bw()
+dev.off()
 
 # 
 data1 = adj_data[,colnames(adj_data) %in% colnames(data0)]

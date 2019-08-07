@@ -56,7 +56,8 @@ Now let's blast the query sequences against the formatted database, either using
 > From testing query sequences remove extra-headers and subset a sample in order to test this workflow (use [subsample.py](https://github.com/RJEGR/infovis/blob/master/subsample.py) in order to process this step).
 
 ```bash
- export PATH=/LUSTRE/apps/bioinformatica/blast2GO/blast2go_cli_v1.3.3:$PATH
+ # export PATH=/LUSTRE/apps/bioinformatica/blast2GO/blast2go_cli_v1.3.3:$PATH
+export PATH=/LUSTRE/apps/bioinformatica/blast2go_cli_v1.4.1:$PATH
 ```
 
  
@@ -78,13 +79,17 @@ salloc -N 1 -n 24 --exclusive --nodelist nodo30
 ssh nodo30
 # password:  ***
 
+export PATH=/LUSTRE/apps/bioinformatica/blast2go_cli_v1.4.1:$PATH
+
+#
+blast2go_cli.run -createproperties cli.prop
 ```
 
 After finish your task, please exit the node 30 by typing:
 
 ```bash
 disown %1
-exitless
+exit
 ```
 
 > In case to thread the task, please use `nohup` to manage any bast2go task. Ex `nohup blast2go_cli.run command & ` 
@@ -124,7 +129,7 @@ local_blast.xml -mapping -annotation \
 
 ```
 
-## Reporte
+## Report (comment 1)
 
 El programa blast2go_cli.run ubicado dentro del cluster en la ruta PATH parece funcionar con signos de advertencia en los módulos de java (Ej. *java.io.IOException: No space left on device |or| Java HotSpot(TM) 64-Bit Server VM warning: Insufficient space for shared memory file*), ignoró la modalidad en la que el programa  blast2go solicite recursos del cluster, pero reconozco que este demanda memoria para almacenar información temporal, sin embargo el nodo30 (en el cual está instalada la licencia de este programa) está limitado en la memoria para almacenar archivos temporales. 
 
@@ -157,7 +162,7 @@ Quedo pendiente de cualquier pregunta o sugerencia.
 >
 > WORKDIR=/LUSTRE/bioinformatica_data/genomica_funcional/rgomez/blast2go
 
-## second report
+## Comment 2
 
 After install blast2go_cli (activated licence) in a cluster node with Linux Red-Hat Enterprise 6.7 system (storage of 131 TB (lustre + infiniband)) + 24 cores) We processed the cli_prop file as manual said: `blast2go_cli.run -createproperties cli.prop` and replace the database path file (downloaded manually) in section  `DataAccessParameters` and start trying the examples described in the manual.Our intention were run GO Mapping,  Annotation  and report blast2go stats at beginning. Therefore, We included the parsing the sequence IDs within the makeblast step plus the fixed reference database (changing separator line with `sed -i 's/\s/|/g' uniprot_sprot.pep`). Then, we ensured to use the parameter `-show_gis` in blastx (2.4.0+) in order to retrieve the accessions IDs from the formatted database. Unfortunately we had unknown of problems trying to test the any example (as the manual described) with either,  the data_example data sets and subset of our own datasets.
 
@@ -178,3 +183,92 @@ The final problem were running the code below than output statistics in pdf file
 I attached to this mail the report example.pdf, cli.prop and the log file produced by this step in addition to the own subset of datasets implemented during testing blas2go_cli.
 
 We are very concerned about the time we have had spent using this tool without satisfactory results so we decided to emigrate and use the comprehensive annotation suite trinotate in our lab.
+
+
+
+## Comment 3
+
+> September 6, 2018
+
+Que tal a todos,
+
+El dia de hoy Sylvia y yo tuvimos la reunión con David y Mariana, del servicio de soporte de blast2go,
+
+Después de algunas pruebas insatisfactorias, David comentó que la versión que manejamos era muy vieja y solicitó que se hiciera un upgrade a la versión más actual de blast2go_cli ([1.4](http://cli.docs.blast2go.com/user-manual/setup/)). Aunque se nos otorgó una nueva licencia de esta versión para hacer algunas pruebas, requiere de herramientas adicionales que aún no están instaladas en el cluster para el [manejo de bases de datos](https://www.mongodb.com/cloud/atlas?jmp=homepage). Por lo que Sylvia se hará cargo de la instalación y manejo de las pruebas de esta nueva versión de blast2go cli (y por este medio le extiendo mi apoyo a Sylvia si solicita ayuda para las pruebas del programa).
+
+En caso de tener nuevamente fallas, dejo a criterio de la Dra. Clarissa y Dr. Edgar la decisión final de esta herramienta ya que David estará pendiente de nuestros mensajes.
+
+
+
+Saludos
+
+> September 11, 2018
+
+Buen día chicos,
+
+Ayer se me pasó avisarles de la nueva instalación de blast2go, aparentemente todo está bien
+
+El  viernes estuve haciendo pruebas para la instalación de mongo, la base de datos que esta nueva versión, en un par de nodos así como la obtención de los datos que nos indicaros y su importación a la mencionada base (todo ello se podía probar en cualquier nodo).
+
+Ya verificada esta parte ayer ya hice la instalación en nodo30 y realicé la ejecución el primer ejemplo de prueba que vienen en el manual, para el segundo quería verificar con ustedes lo de la base de datos de Swissprot, hay dos versiones de ella  `/LUSTRE/bioinformatica/BD` alguna de ellas o ambas serán las actualizadas o será conveniente traer la última versión?
+
+Se tiene una versión de licencia libre de mongo, por lo que ví para ejecutar blast2go no es necesario conocer detalles de ésta, de cualquier forma van:
+
+Se instaló en `/usr/local/mongo` se pusieron ligas a los ejecutables en /usr/bin por lo que con tener incluida esta trayectoria en la variable de entorno PATH es suficiente para acceder a ella (todos los usuarios inician con esta ya incluida)
+
+ La trayectoria para la base de datos está:  /LUSTRE/computo_data/mongodb/nodo30   en esta ya se contemplan la inclusión de los datos de blast2go, el archivo de ellos que se obtuvo es el  `2017.12.gz` , que se encuentra en` /LUSTRE/bioinformatica_data/BD/blast2go`.
+
+  La nueva versión de blast2go quedó en:
+
+` /LUSTRE/apps/bioinformatica/blast2go_cli_v1.4.1`
+
+esta trayectoria hay que agregarla  en la variable PATH:
+
+` export PATH=/LUSTRE/apps/bioinformatica/blast2go_cli_v1.4.1:$PATH`
+
+En esa misma trayectoria se encuentra el archivo cli.prop inicial, en un momento pondré el actualizado que sería el archivo base ya posteriormente si las condiciones de trabajo de alguien en particular lo requiere harían sobre el las modificaciones pertinentes.
+
+
+
+**Al ejecutar las pruebas no olvidar usar para las salidas un subdirectorio en /LUSTRE (la opción -tempfolder)** adicional a los resultados que se guardan aquí se generan archivos en el subdirectorio de datos de mongo, sobre esto tengo que estudiar un poco para ver el comportamiento, en mysql que utilizaba antes se podía crear idistintos usuarios e igual distintas instancias de tablas asignadas a cada uno de ellos de forma que a pesar de estar en el mismo servidor de mysql, con el mismo software no se interfiera en el trabajo de otros.  Los resultados individuales los envía a al subdirectorio indicado con -tempfolder y en la bd de mongo, hasta donde pude observar, crea archivos independientes pero tengo que verificar bien que sucede con toda la base.
+
+Si las parece podemos avanzar con las siguientes pruebas que vienen en el manual, mientras tanto yo iré viendo lo de mongo y podríamos arrancar con una base limpia ya cuando vayan a estar trabajando con datos y ejecuciones propias.
+
+
+
+>September 13, 2018
+
+Hola Edgar, Ricardo,
+
+Ejecuté las pruebas de ejemplos que vienen en el manual de blast2go, excepto los ejemplos 4 y 7.
+
+El primero de ellos ni siquiera lo intenté ya que entre los parámetros de ejecución indica el uso de una dirección de correo válida, dado que el cluster no tiene habitado el envío de correos este ejemplo tendrá algún error, tal vez sea solo en el momento de envío del mensaje, podríamos probar para comprobar si el procesamiento lo hace correctamente.  En el ejemplo 10 se tienen un error, pero más que por funcionamiento del software en sí es porque en este caso el blast2go se ejecuta remotamente en un servicio web, no estoy segura si es solo porque no localiza un archivo en ese servidor o porque la versión del blast2go con que se cuenta, el uso del software vía servicio web me parece que está  limitada a usuarios de la versión pro.
+
+Los ocho ejemplos restantes se ejecutaron y generaron resultados en los directorios y archivos que se indica en el manual, restaría solo verificar que los archivos generados correspondan con lo que se espera.  Dejé el directorio de trabajo en:
+
+`/LUSTRE/bioinformatica_data/blast2go_test `
+
+y el directorio con las ocho pruebas es  el v1.4.1, cuando tengan oportunidad de revisarlo ya que entiendo que David estaría en espera del resultado del desempeño del software.
+
+
+
+> September 21, 2018
+
+Que tal a todos,
+
+Silvia, estuve revisando los resultados de la carpeta /LUSTRE/bioinformatica_data/blast2go_test/v1.4.1, los resultados de la carpeta *res* además del archivo b2g son archivos binario que genera blast2go para sus análisis, sin embargo en el pdf, los resultados están completos (el problema anteriormente es que se generaba un archivo pdf vacio), tambien me fije otros resultados que se generaron en /LUSTRE/bioinformatica_data/blast2go_test/v1.4.1/work_dir, y también fueron generados con información (caso anterior , no se generaba nada de información), **al parecer todo esta en orden,** lo que queda es probar con datos propios todos estos análisis (y tambien revisar el manual de esta nueva versión y ver qué más puede hacer esta herramienta) como a continuación:
+
+```bash
+cd /LUSTRE/bioinformatica_data/genomica_funcional/rgomez/blast2go
+
+blast2go_cli \
+-properties cli.prop
+-loadfasta Trinity.fasta.subset
+-loadblast local_blast.xml
+-mapping
+-annotation
+-saveb2g example.b2g
+-savereport example.pdf
+-tempfolder ./
+
+```
