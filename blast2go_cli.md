@@ -83,6 +83,7 @@ export PATH=/LUSTRE/apps/bioinformatica/blast2go_cli_v1.4.1:$PATH
 
 #
 blast2go_cli.run -createproperties cli.prop
+
 ```
 
 After finish your task, please exit the node 30 by typing:
