@@ -53,14 +53,15 @@ for (gene_id in intersect(names(GO_info_listed), sample_set_gene_ids)) {
 }
 
 
-# GO-Seq protocol: build pwf based on ALL DE features
+# GO-Seq protocol: build  probability weighting function (pwf) based on ALL DE features
+# The PWF quantifies how the probability of a gene selected as DE changes as a function of its transcript length.
 sample_set_gene_lengths = gene_lengths[sample_set_gene_ids,]
 GO_info_listed = GO_info_listed[ names(GO_info_listed) %in% sample_set_gene_ids ]
 cat_genes_vec = as.integer(sample_set_gene_ids %in% rownames(factor_labeling))
 pwf=nullp(cat_genes_vec, bias.data=sample_set_gene_lengths)
 rownames(pwf) = sample_set_gene_ids
 
-# plotPWF(pwf)
+plotPWF(pwf, binsize=1000)
 
 # perform functional enrichment testing for each category.
 for (feature_cat in factor_list) {
@@ -125,20 +126,28 @@ library(ggplot2)
 
 
 ## visualice:
+
+res <- read.csv('T3.GOseq.enriched', header = TRUE, row.names = 1, sep = '\t')
+
+
 res %>% 
-  top_n(50, wt=-over_represented_pvalue) %>% 
+  top_n(25, wt=-over_represented_pvalue) %>% 
   mutate(hitsPerc=numDEInCat*100/numInCat) %>% 
+  na.omit() %>%
   ggplot(aes(x=hitsPerc, y=term, 
              colour=over_represented_pvalue, 
              size=numDEInCat)) + geom_point() + expand_limits(x=0) +
   labs(x="Hits (%)", y="GO term", colour="p value", size="Count", 
-       title = paste('GOseq enriched', sep='')) + 
-  facet_grid(sample~ontology, scales = 'free') + theme_bw()
-
-
+       title = paste('GOseq enriched', sep='')) + theme_bw() +
+  facet_wrap(~ sample)
 
 #GOTERM[[res$category[1]]]
 
 # The excess of low P-values shows that there are many GO 
 # categories that contain a set of significantly long or short genes.
+
+
+# Then, use semantic analysis.
+
+
 
