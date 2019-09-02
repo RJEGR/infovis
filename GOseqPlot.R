@@ -52,9 +52,9 @@ for (gene_id in intersect(names(GO_info_listed), sample_set_gene_ids)) {
     }
 }
 
-
 # GO-Seq protocol: build  probability weighting function (pwf) based on ALL DE features
 # The PWF quantifies how the probability of a gene selected as DE changes as a function of its transcript length.
+
 sample_set_gene_lengths = gene_lengths[sample_set_gene_ids,]
 GO_info_listed = GO_info_listed[ names(GO_info_listed) %in% sample_set_gene_ids ]
 cat_genes_vec = as.integer(sample_set_gene_ids %in% rownames(factor_labeling))
@@ -129,7 +129,6 @@ library(ggplot2)
 
 res <- read.csv('T3.GOseq.enriched', header = TRUE, row.names = 1, sep = '\t')
 
-
 res %>% 
   top_n(25, wt=-over_represented_pvalue) %>% 
   mutate(hitsPerc=numDEInCat*100/numInCat) %>% 
@@ -138,8 +137,8 @@ res %>%
              colour=over_represented_pvalue, 
              size=numDEInCat)) + geom_point() + expand_limits(x=0) +
   labs(x="Hits (%)", y="GO term", colour="p value", size="Count", 
-       title = paste('GOseq enriched', sep='')) + theme_bw() +
-  facet_wrap(~ sample)
+       title = paste('GOseq enriched', sep='')) + theme_bw()
+  #facet_wrap(~ sample)
 
 #GOTERM[[res$category[1]]]
 
@@ -148,6 +147,79 @@ res %>%
 
 
 # Then, use semantic analysis.
+library(org.Hs.eg.db)
+library(clusterProfiler)
+
+# detach(package:org.Hs.eg.db, unload = TRUE)
+
+nrow(res0 <- res[res$ontology == 'MF',])
+
+nrow(res0 <- subset(res0, !is.na(category)))
 
 
+length(go <- res0[res0$over_represented_pvalue<=0.05,]$category)
+
+names <- res0[res0$over_represented_pvalue<=0.05,]$term
+
+length(go <- c(na.omit(go)))
+
+hsGO <- GOSemSim::godata('org.Hs.eg.db', ont="MF", computeIC=TRUE)
+
+# library(GOSemSim)
+gosim <- GOSemSim::mgoSim(go,go ,semData=hsGO, measure="Wang", combine=NULL)
+
+rownames(gosim) <- names
+
+library(superheat)
+library(RColorBrewer)
+# https://guangchuangyu.github.io/software/GOSemSim/
+
+superheat(gosim,
+          # retain original order of rows/cols
+          pretty.order.rows = TRUE,
+          pretty.order.cols = TRUE,
+          row.dendrogram = TRUE,
+          # left labels
+          left.label.size = 0.5,
+          left.label.text.size = 1.7,
+          left.label.text.alignment = 'right',
+          #left.label.text.angle = 95,
+          # bottom labels
+          bottom.label.size = 0.5,
+          bottom.label.text.size = 1.7,
+          bottom.label.text.angle = 90,
+          bottom.label.text.alignment = "right",
+          row.title = " ",
+          column.title = " ",
+          # change the grid color
+          grid.hline.col = "white",
+          #grid.vline.col = "white",
+          left.label.col = "white",
+          bottom.label.col = "white",
+          heat.pal = brewer.pal(n = 9, name = "RdYlBu"),
+          force.left.label = TRUE,
+          legend = TRUE,
+          legend.vspace = -0.12,
+          # make the legend bigger
+          legend.height = 0.2,
+          legend.width = 1,
+          legend.text.size = 7
+          #row.title = "Sample 1",
+          #column.title = "Sample 2",
+)
+
+#
+sampleTree = hclust(dist(gosim), method = "average")
+
+par(cex = 0.6);
+par(mar = c(0,4,2,0))
+
+library(WGCNA)
+
+clust = cutreeStatic(sampleTree, cutHeight = 3e+05, minSize = 0)
+
+plot(sampleTree, 
+     main = paste0("Genes clustering to detect outliers \n The n clusters count are: ", max(table(clust))), sub="", 
+     xlab="", cex.lab = 1.5,
+     cex.axis = 1.5, cex.main = 2)
 
