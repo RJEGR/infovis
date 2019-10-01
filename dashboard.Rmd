@@ -1,0 +1,148 @@
+---
+title: "Gene Expression"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+
+library(knitr)
+library(d3heatmap)
+library(flexdashboard)
+```
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+```{r laod-log2 transformation}
+dir <- "/Users/cigom/transcriptomics/oyster_full_assembly/"
+file <- 'RSEM.isoforms.counts.matrix_cv_pfam_goPfam_swissprot_pep.txt'
+datExpr_annt <- read.csv(paste0(dir, file), sep = '\t')
+
+data <- datExpr_annt[,1:21]
+
+dataExp <- log2(data+1)
+dataExp <- as.matrix(dataExp) # convert to matrix
+dataExp <- t(scale(t(dataExp), scale=F)) # Centering rows
+
+x <- as.data.frame(dataExp)
+x <- head(x, n = 100)
+y <- head(datExpr_annt[,-c(1:21)], n = 100)
+
+```
+### Chart A
+
+```{r heatmap}
+# make dendogram
+library(dendextend)
+
+row_dend  <- x %>% dist %>% hclust %>% as.dendrogram %>%
+   set("branches_k_color", k = 3) %>% set("branches_lwd", c(1,3)) %>%
+   ladderize
+
+#    rotate_DendSer(ser_weight = dist(x))
+
+col_dend  <- x %>% t %>% dist %>% hclust %>% as.dendrogram %>%
+   set("branches_k_color", k = 2) %>% set("branches_lwd", c(1,2)) %>%
+   ladderize
+#    rotate_DendSer(ser_weight = dist(t(x)))
+
+# Colorint
+Samples <- sapply(strsplit(as.character(names(x)), "_"), `[`, 1)
+
+library(heatmaply)
+
+heatmaply(x, Rowv = row_dend, Colv = col_dend, hclust_method = 'average',
+          margins = c(40,40), plot_method = "plotly",
+          colors = brewer.pal(n = 9, name = "BrBG"), col_side_colors = Samples,
+          fontsize_col = 5, fontsize_row = 10, 
+          labRow = y$go, file = paste0(dir,'heatmap.html'))
+
+
+
+```
+
+### Chart B
+```{r datatable}
+library(DT)
+#rownames(data) <- y$Gene
+datatable(datExpr_annt[,-c(1:21)] , escape=1, options = list( pageLength = 10 ) )
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart C
+
+```{r pca}
+library(plotly)
+pca <- prcomp(t(data), center = TRUE, scale. = FALSE)
+
+## make a scree plot
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100, 1)
+#
+pca.data <- data.frame(Sample=rownames(pca$x),
+                       X=pca$x[,1],
+                       Y=pca$x[,2])
+
+#
+
+samples.name <- 'diffExp/metadata.file'
+samples.file <- paste0(dir, samples.name)
+
+metadata <- read.csv(samples.file, header=T, 
+                     com='', check.names=F, 
+                     sep='\t', stringsAsFactors = FALSE)
+
+
+metadata <- metadata[!duplicated(metadata$Replica, fromLast = TRUE) ,]
+
+#identical(rownames(pca.data), metadata$Identificador)
+pca.data <- cbind(pca.data, metadata)
+
+
+n <-length(unique(pca.data$Sexo))
+
+library(RColorBrewer)
+
+getPalette = colorRampPalette(brewer.pal(n, "Dark2"))
+
+
+library(ggplot2)
+pcaplot <- ggplot(data=pca.data, aes(x=X, y=Y, label=Grupo, color = Sexo)) +
+  geom_text() +
+  geom_point() +
+  #geom_point(aes(color = factor), size = 5, alpha = 0.7) +
+  xlab(paste("PC1 - ", pca.var.per[1], "%", sep="")) +
+  ylab(paste("PC2 - ", pca.var.per[2], "%", sep="")) + theme_bw() +
+  scale_color_manual(values=getPalette(n)) + facet_wrap(~Tejido)
+
+ggplotly(pcaplot)
+```
+
+### Chart D 
+
+```{r boxplot}
+datam2 <- reshape2::melt(data, value.name = 'log2')
+datam2$tissue <- sapply(strsplit(as.character(datam2$variable), "_"), `[`, 1)
+#datam2$condition <- sapply(strsplit(as.character(datam2$variable), "_"), `[`, 1)
+
+library(ggplot2)
+
+p2 <- ggplot(datam2, aes(x=variable, y=log2)) + 
+  geom_boxplot() + facet_wrap(~tissue, scales = 'free', nrow = 1) +
+  stat_summary(fun.y=mean, geom="line", color = 'red', mapping = aes(group = tissue)) +
+  labs(title="log2 Transformed data count",x="Samples (replicates)", y = "Expression") +
+  theme_classic() + theme(axis.text.x = element_text(size = 9, angle = 75)) +
+  coord_flip()
+
+library(plotly)
+ggplotly(p2)
+
+# rmarkdown::run(file = '~/Documents/GitHub/infovis/dashboard.Rmd') # to launch
+# rmarkdown::render(input = '~/Documents/GitHub/infovis/dashboard.Rmd') # <- to save
+```
+

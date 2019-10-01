@@ -34,6 +34,14 @@ blast_load <- function(x) {
   return(blast_obj)
 }
 
+logtrans <- function(data){
+  data <- log2(data+1)
+  data <- as.matrix(data) # convert to matrix
+  data <- t(scale(t(data), scale=F)) # Centering rows
+  data <- as.data.frame(data)
+  return(data)
+}
+
 
 blast_path = '/Users/cigom/transcriptomics/miRNAs/blastp'
 blast_files <- list.files(blast_path, full.names = TRUE, pattern = 'trinity_genes.fasta.transdecoder_vs_peerj-04-1763-s005_blastp.outfmt6')
@@ -68,6 +76,7 @@ ggplot(blast_plot, aes(x=pident, y=length)) +
        #caption = paste0('miRNA machinery with Frequency > ', n_sseqid, " is labeled")) +
   geom_text(data = subset(blast_plot, pident >= 90 & qcovs >= 90 ), aes(label=sseqid), hjust = 1, vjust = 1, check_overlap =TRUE, size = 2.3)
   #geom_text(data = subset(blast_plot, sseqid==ssqid_text), aes(label=sseqid), hjust = 0, vjust = 1, check_overlap =TRUE, size = 2.3)
+
 dev.off()
   #facet_wrap( ~ name, scales = 'free')
 
@@ -97,6 +106,7 @@ samples_file <- list.files(count_path, full.names = TRUE, pattern = "MetadataCv_
 samples_data <- read.table(samples_file, sep = ',', header = TRUE)
 samples_data = samples_data[samples_data[,2] != '',]
 names(samples_data)[1] <- c("sample_name")
+
 # es una excelent idea transformar toda la matriz de datos y excluir expresiones menores a n % 
 ## https://www.bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#data-transformations-and-visualization
 # library("DESeq2")
@@ -201,6 +211,55 @@ dev.off()
 gonada <- c("T0_R",  "T0_S1", "T1_R",  "T1_S2", "T2_R",  "T2_S3", "T3_R",  "T3_S4")
 gonada_df <- select(data, gonada, total, name)
 
+gonadaII <- c('ML1_GON_100_T3','ML1_GON_T0','FM2_GON_200_T3','FM1_GON_200_T3','ML4_GON_T0','ML2_GON_200_T3','FM3_GON_T0','FM4_GON_T0')
+
+dim(gonada_df <- select(count_matrix_subset, gonada, gonadaII, name, -pident, -qcovs)[-1])
+hist(log2(rowSums(select(gonada_df, -name))), breaks = 50)
+dim(gonada_df[log2(rowSums(select(gonada_df, -name))) >=8 ,])
+# removing empty expression
+dim(gonada_df <- gonada_df[log2(rowSums(select(gonada_df, -name))) >=8 ,])
+gonada_dfs <- logtrans(select(gonada_df, -name))
+rownames(gonada_dfs) <- gonada_df$name
+
+datavis <- melt(gonada_dfs)
+datavis$condition <- sapply(strsplit(as.character(datavis$variable), "_"), `[`, 1)
+
+ggplot(datavis, aes(x=variable, y=value)) + 
+  geom_boxplot() + facet_wrap(~condition, scales = 'free', nrow = 3) +
+  stat_summary(fun.y=mean, geom="line", color = 'red', mapping = aes(group = condition)) +
+  labs(title="log2 Transformed data count",x="Samples (replicates)", y = "Expression") +
+  theme_classic() 
+
+superheat(gonada_dfs,
+          # add scatterplot next to the rows
+          #yr = gonada_df$total,
+          #yr.axis.name = paste0("log2(Expr)"), #, highestp, "\ncolored"),
+          #yr.plot.type = "scattersmooth",
+          # change the color of the points
+          #yr.obs.col = point.col,
+          # retain original order of rows/cols
+          pretty.order.rows = TRUE,
+          pretty.order.cols = TRUE,
+          col.dendrogram = TRUE,
+          row.dendrogram = TRUE,
+          # left labels
+          left.label.size = 0.7,
+          left.label.text.size = 1.4,
+          left.label.text.alignment = 'right',
+          #left.label.text.angle = 95,
+          # bottom labels
+          bottom.label.size = 0.5,
+          bottom.label.text.size = 2.7,
+          bottom.label.text.angle = 90,
+          bottom.label.text.alignment = "right",
+          row.title = " ",
+          column.title = " ",
+          # change the grid color
+          grid.hline.col = "white",
+          grid.vline.col = "white",
+          left.label.col = "white",
+          bottom.label.col = "white",
+          heat.pal = brewer.pal(n = 9, name = "RdYlBu"))
 
 # Corr test----
 

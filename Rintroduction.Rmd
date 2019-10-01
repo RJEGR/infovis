@@ -1,0 +1,489 @@
+---
+title: "Introducción a R"
+author: "Karen Guerrero | Joel Ricci | Ricardo Gómez"
+date: "`r format(Sys.Date())`"
+output: 
+  ioslides_presentation:
+    smaller: true
+    widescreen: true
+  
+---
+
+```{r setup, include=FALSE, echo = TRUE}
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+---
+
+```{r, out.width="100%", out.height="100%", fig.align='center'}
+knitr::include_graphics('/Users/cigom/dataScience_courses/iceberg_tip.png')
+```
+
+## ¿Para que R?
+
+```{r, out.width="80%", out.height="60%", fig.align='center'}
+knitr::include_graphics('/Users/cigom/dataScience_courses/datavis_workflow.png')
+```
+
+---
+
+```{r, out.width="60%", out.height="35%"}
+knitr::include_graphics('/Users/cigom/dataScience_courses/language_stats.png')
+```
+
+https://businessoverbroadway.com/2019/01/13/programming-languages-most-used-and-recommended-by-data-scientists/
+
+---
+
+```{r, out.width="100%", out.height="100%"}
+knitr::include_graphics('/Users/cigom/dataScience_courses/sampleSheet.png')
+```
+
+
+<!-- RStudio es un entorno de desarrollo integrado que usaremos para editar y probar nuestro código durante el taller. -->
+<!-- La siguiente [hoja de trucos](https://www.rstudio.com/wp-content/uploads/2016/01/rstudio-IDE-cheatsheet.pdf) de RStudio puede orientarlos en el uso de RStudio durante el talle -->
+
+<!-- ![Rstudios workflow.](/Users/cigom/dataScience_courses/sampleSheet.png) {#id .class width=2 height=2px} -->
+
+## Tipos de datos 
+
+- Los datos `categóricos` son variables definidas por un pequeño número de grupos. 
+
+  + `Categóricos ordinales` tienen un orden inherente a las categorías (leve / medio / caliente, por ejemplo). 
+
+  + `Categóricos no ordinales` no tienen orden en las categorías. 
+
+- Los datos `numéricos` toman una variedad de valores numéricos. 
+  + Las `variables continuas` pueden tomar cualquier valor.
+  + Las `variables discretas` se limitan a conjuntos de valores específicos.
+
+<div class="red2">
+- ¿Que tipo de datos son estos?
+</div>
+  
+```{r A}
+seq(0, 5,by = 1)
+seq(0.5, 1,by = 0.1)
+
+```
+
+
+```{r C, echo=FALSE, eval=FALSE}
+days <- c('Sunday', 
+          'Monday', 'Thuesday', 
+          'Wednesday', 'Thursday', 'Friday',
+          'Saturday')
+
+print(days)
+```
+
+```{r D}
+names <- c('Clara Galindo', 'Raquel Muñiz Salazar', 'Miguel A. Tripp Valdez', 'Claudia Ventura López', 'Laura Liliana López Galindo ', 'Javier Robles Flores', 'Silvia A. Arroyo Salazar', 'Alison C. Domínguez Estrada', 'Edgar Alfonso López Landavery', 'Anaid Saavedra Flores', 'Clara Hereu',
+'Miguel Martinez', 'Brenda Ivette Iduarte Frias', 'Miguel Ángel del Río Portilla', 'Francesco Cicala', 'Diana Marisol Lara Pérez', 'Eugenio García Álvarez')
+
+depto <- c('Biotecnología marina',
+'Biotecnología marina', 'Escuela de Ciencias de Salud',
+'Acuicultura', 'Biotecnología Marina', 'Biotecnología Marina', 'Biotecnología Marina', 'Biotecnología Marina', 'Biotecnología marina', 'Biotecnología marina', 'Biotecnología marina', 'Biotecnología marina', 'Biotecnologia Marina', 'Inovación Biomédica', 'Acuicultura', 'Inovación Biomédica', 'Biotecnología Marina', 'Acuicultura')
+
+center <- c('CICESE', 'UABC', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE', 'CICESE')
+
+print(sample(names, 3))
+
+```
+
+<!-- Detalles [aqui](https://github.com/RJEGR/July_2018_bioinfo) -->
+
+## End()
+
+
+## Outlines
+
+1. Introducción a R
+  - Operaciones matemáticas y asignaciones
+  - Tipos de objectos y manipulación de vectores
+  - Operaciones racionales
+  - Graficos con R
+  - Leyendo archivos
+
+## Empezando con R
+
+Copien y pegen el texto de arriba en su terminal, y R deberá regresarles algo así:
+
+```{r print, echo = TRUE}
+print("Esta función simplemente imprime un texto a la pantalla")
+```
+
+Para obtener ayuda en R de cualquier función, escribimos un signo de interrogación adelante del nombre de la función, por ejemplo:
+
+```{r ?print, echo = TRUE}
+?print
+```
+
+## Operaciones matemáticas y asignaciones
+
+```{r, echo = TRUE}
+2+1
+```
+
+```{r, echo = TRUE}
+3-5
+```
+
+```{r, echo = TRUE}
+4*4
+```
+
+```{r, echo = TRUE}
+16/4
+```
+
+```{r, echo = TRUE}
+7.15 * sqrt(4)
+```
+
+## Operaciones matemáticas y asignaciones
+
+Para guardar uno de estos resultados, tenemos que asignarlo a un *objeto* en R. Podemos darle casi cualquier nombre a los *objetos*, pero una restricción importante es que no podemos nombrarlos comenzando por un número. Para guardar usamos el símbolo `=` o `<-`.
+
+```{r, echo = TRUE}
+x = 3+4.5
+otro_numero <- x * sqrt(4)
+otro_numero
+```
+
+Para ver el contenido de uno de estos objetos, simplemente tecleamos su nombre en R
+
+<div class="blue2">
+La ventaja de guardar así los resultados, es que podemos seguirlos usando en nuevas operaciones:
+</div>
+
+```{r, echo=TRUE}
+x + 2*otro_numero
+```
+
+## Operaciones matemáticas y asignaciones
+
+Una de las ventajas de R es que puede realizar operaciones sobre muchos números a la vez. Para ello, primero generamos un objeto que contenga varios números, usando la función `c()`. Esta instrucción es para combinar.
+
+```{r, echo = TRUE}
+edades = c(39,36,10,8,1,1,88)
+```
+Para ver los números que acabamos de guardar, simplemente tecleamos `edades`
+
+```{r, echo=TRUE}
+edades
+```
+
+## Operaciones matemáticas y asignaciones
+
+```{r, echo = TRUE}
+edades
+```
+
+<div class="red2">
+- ¿Que operación nos lleva a tener los siguientes resultados?
+</div>
+
+```{r, echo=FALSE}
+edades + 1
+```
+
+```{r, echo=FALSE}
+edades * 10
+```
+
+```{r, echo=FALSE}
+print((edades + 1)*10)
+```
+
+## Operaciones matemáticas y asignaciones
+
+<div class="red2">
+- ¿Que hace cada una de las siguientes funciones?
+</div>
+
+
+```{r, echo=TRUE, eval=FALSE} 
+sum(edades)
+mean(edades)
+max(edades)
+min(edades)
+range(edades)
+sort(edades)
+
+unique(edades)
+table(edades)
+```
+
+## Operaciones matemáticas y asignaciones
+
+Si no saben el nombre de la función que buscan, pueden tratar de encontrarla usando el comando `??` en la terminal:
+
+```{r, eval=FALSE, echo = TRUE}
+??deviation
+```
+
+<div class="red2">
+- ¿Cuál es la función para calcular la standard deviation?
+</div>
+
+## Tipos de objectos y manipulación de vectores
+
+```{r}
+
+```
+
+En R podemos tener valores de texto, los cuales se encierran entre comillas. Del mismo modo que guardamos una serie de números en el objeto edades, podemos guardar una serie de valores de texto en un nuevo objeto:
+
+```{r, echo = TRUE}
+nombres = c("Homero","Marge","Bart","Lisa","Maggie","Snowball","Abraham")
+```
+
+Muchas veces necesitamos el texto para etiquetar a los valores numéricos (por ejemplo, tener valores numéricos de expresión con etiquetas de texto para los nombres de los genes). Hay una función names() para asignar nombres o etiquetas de texto:
+
+```{r, echo=TRUE}
+names(edades) = nombres
+```
+
+
+y ahora si vemos el contenido de `edades`, veremos que ya tiene sus debidas etiquetas:
+
+```{r, echo = TRUE}
+edades
+```
+
+## Tipos de objectos y manipulación de vectores
+
+```{r, echo = TRUE}
+edades
+```
+
+<div class="blue">
+Nuestro objecto edades tiene la particularidad de que contiene varios valores. A este tipo de objecto se le llama un “vector” en R.
+</div>
+
+Para obtener el primer elemento del vector:
+
+```{r, echo = TRUE}
+edades[1]
+```
+
+<div class="red2">
+- ¿Como obtenemos el quinto elemento del vector edades?
+</div>
+
+```{r}
+edades[5]
+```
+
+## Tipos de objectos y manipulación de vectores
+
+Se puede también obtener una serie de elementos del vector a la vez. Para ello, necesitamos indicarle a R todos los `índices` o posiciones de los elementos que queremos usando la expresión `c()`. 
+
+```{r, echo = TRUE}
+edades[c(1,5)]
+```
+
+Por último, podemos usar índices negativos para indicarle a R que queremos quitar temporalmente ciertos elementos de un vector:
+
+```{r, echo = TRUE}
+edades[-c(1,5)]
+```
+
+<div class="red2">
+Ejercicios:
+</div>
+
+- ¿Cuál es el promedio de las edades, sin contar el de Maggie?
+- Quiten a Snowball del vector, ordéna el vector por edades y guárdenlo como un nuevo objeto.
+
+## Operaciones relacionales
+
+Muchas veces queremos “preguntarle” cosas a los números, como por ejemplo, qué genes tienen un valor de expresión mayor a un umbral. Este tipo de preguntas se contestan mediante operaciones relaciones (mayor que, menor que, igual a, etc). Con nuestro objeto de edades podemos ver esto. Quiénes tienen una edad mayor a 10?
+
+```{r, echo = TRUE}
+edades
+```
+
+```{r, echo = TRUE}
+edades > 10
+```
+
+## Operaciones relacionales
+
+Del mismo modo podemos preguntar cuales son menores que, mayores o iguales que, o iguales a, un valor:
+
+```{r, echo =TRUE}
+edades < 10
+```
+
+```{r, echo = TRUE}
+edades >= 10
+```
+
+```{r, echo = TRUE}
+edades == 1
+```
+
+<div class="blue">
+OJO! Se usa doble signo de igual, ¿Porque?
+</div>
+
+## Operaciones relacionales
+
+En todos estos casos R nos regresa una serie de valores TRUE/FALSE, usualmente llamados valores lógicos. Un vector de valores lógicos puede resultar muy útil, como se verá en los siguientes ejemplos:
+
+```{r, echo = TRUE}
+sum(edades > 10)
+```
+
+```{r, echo = TRUE}
+edades[edades > 10]
+```
+
+
+
+<div class="red2">
+Ejercicios:
+</div>
+
+- ¿Qué hacen las últimas instrucciones?
+- ¿Cómo obtienen aquellas edades que son mayores al promedio de todas las edades?
+
+## Graficando con R | Visualización de datos
+
+Las visualizaciones de información (*Datavis*) suelen ser menos estéticamente ricas que las infografías y tiene como objetivo:
+
+- Contar una historia
+- Transmitir un mensaje
+
+> - Trazados con la ayuda de métodos computarizados (puede tener toques personalizados).
+
+> - Fácil de regenerar con diferentes datos con dimensiones o características similares (reciclado de código).
+
+> - Estéticamente estéril (los datos no están decorados); y relativamente rico en datos.
+
+---
+
+```{r}
+knitr::kable(head(cars), caption = 'The data give the speed of cars and the distances taken to stop in the  1920s')
+```
+
+
+---
+```{r, echo = TRUE}
+plot(cars)
+```
+
+---
+
+```{r, echo = TRUE}
+barplot(edades)
+```
+
+---
+
+```{r, echo = TRUE}
+pie(edades)
+```
+
+---
+
+```{r, echo = TRUE}
+hist(edades)
+```
+
+---
+
+Todas estas funciones tienen su página de ayuda, accesible por ejemplo con `?hist`. También existe una gran cantidad de información avanzada sobre los parámetros que podemos cambiar al graficar, en `?par`. Toma tiempo acostumbrarse a todos ellos. Por ahora veamos un ejemplo de complejidad media:
+
+```{r, echo = TRUE}
+hist(edades, col="skyblue", main="El Histograma Azul", ylab="Personas")
+```
+
+## Guardando figuras
+
+Hay muchas maneras de guardar estas imágenes. Por ejemplo, para guardar la última en un archivo PDF hacemos lo siguiente:
+
+```{r,echo = TRUE, eval=FALSE}
+pdf("histograma.pdf")
+
+hist(edades, col="skyblue", main="El Histograma Azul", ylab="Personas")
+
+dev.off()
+```
+
+
+La función `pdf()` crea un archivo *“histograma.pdf”* y todas las instrucciones de graficación que hagamos de ahí en adelante se guardarán en este archivo (y no saldrán en pantalla). Para cerrar el archivo correctamente, tenemos que usar la función `dev.off()`.
+
+# Leyendo archivos y manipulando tablas
+
+---
+
+Por lo general no queremos estar metiendo nuestros datos a mano en R. Si ya tenemos una serie de números en un archivo de texto, los podemos importar a R fácilmente. Para este ejercicio, bajen el archivo num.txt y guárdenlo en el directorio de trabajo de R.
+
+Para esto pueden ser útiles las siguientes funciones, para saber cuál es el directorio de trabajo de nuestra sesión de R y para listar los archivos que se encuentran ahí:
+
+```{r, echo =TRUE}
+url <- "http://datos.langebio.cinvestav.mx/~cei/cursos/BP_2018/data/tab.txt"
+
+tab = read.table(url, header = TRUE)
+
+str(tab)
+```
+
+<div class="red2">
+Ejercicio
+</div>
+
+- Averigua para que sirve la funcion `str`
+
+---
+
+```{r, echo = TRUE, fig.align='center'}
+boxplot(tab, col=c("red","green","blue"))
+```
+
+---
+
+Una tabla consta de dos dimensiones: renglones y columnas. En estos casos, los corchetes cuadrados van a aceptar dos series de índicies, separados por una coma:
+
+```{r, echo = TRUE}
+tab[10, 3]
+tab[c(1,6,10), c(1,3)]
+```
+
+---
+
+Podemos también especificar índices en sólo una de las dimensiones:
+
+```{r, echo = TRUE}
+
+tab[c(1,6,10), ] # Renglones
+
+tab[, c(1,3)] # Columnas
+```
+
+<div class="blue">
+OJO, no se les olvide poner la primera coma, ¿Porque?
+</div>
+
+---
+
+<div class="red2">
+Ejercicios (Puntos extras)
+</div>
+
+
+1. Muestren los valores de expresión del 3er gen
+
+2. Cuál es el promedio de expresión en la 2da condición?
+
+3. Cuántos genes tienen un valor de expresión mayor en la primera condición comparada con la tercera?
+
+4. Avanzado: Revisen la ayuda de la función `apply()` para averiguar como calcular el promedio de expresión de cada uno de los genes, con una sola instrucción. Y para cada una de las condiciones?
+
+```{r, echo = FALSE, out.height='10%', out.height='10%', fig.align='center'}
+hist(apply(tab, 1, mean), main = '', xlab = 'Expresión', ylab = 'Numero de genes')
+```

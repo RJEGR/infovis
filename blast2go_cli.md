@@ -105,7 +105,7 @@ blast2go_cli.run -properties cli.prop -useobo go_latest.obo -loadfasta ./Trinity
 The follow code Load a DNA fasta file, add the corresponding blast results and perform mapping and annotation. Furthermore, we want to save the .dat file and the PDF report at the current directory with the given name (example).
 
 ```bash
-blast2go_cli.run -properties cli.prop -useobo DB/go_latest.obo -loadfasta ./Trinity.fasta.subset -loadblast ./local_blast.xml -mapping -annotation -savedat example -savereport example
+blast2go_cli.run -properties cli.prop -useobo DB/go_latest.obo -loadfasta ./Trinity.fasta.subset -loadblast ./local_blast.xml -mapping -annotation -savedat example -savereport exampleR	
 
 ```
 
