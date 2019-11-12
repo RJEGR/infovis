@@ -284,7 +284,7 @@ p1 <- ggplot(data, aes(x=x,y=y))+
 
 
 p2 <- ggplot(data, aes(x = x)) + stat_density(fill = col1) + geom_rug(col = col1, alpha = 0.1) + theme(panel.background = element_blank()) + xlab("Tamano de lectura (query)") + coord_cartesian(xlim = c(130, 150))
-p3 <- ggplot(data, aes(x = y)) + stat_density(fill = col2) + geom_rug(col = col2, alpha = 0.1) + coord_flip(xlim = c(75, 100)) + theme(panel.background = element_blank()) + xlab("Identidad del Alineamiento") 
+p3 <- ggplot(data, aes(x = y)) + stat_density(fill = col2) + geom_rug(col = col2, alpha = 0.1) + coord_flip(xlim = c(75, 100)) + theme(panel.background = element_blank()) + xlab("Identidad del Alineamiento")
 
 # arrange the plots together, with appropriate height and width for each row
 # and column

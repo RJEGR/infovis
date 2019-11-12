@@ -127,7 +127,9 @@ library(ggplot2)
 
 ## visualice:
 
-res <- read.csv('T3.GOseq.enriched', header = TRUE, row.names = 1, sep = '\t')
+nrow(res <- read.csv('T3.GOseq.enriched', header = TRUE, row.names = 1, sep = '\t'))
+
+# nrow(res <- filter(res, ontology == 'MF'))
 
 res %>% 
   top_n(25, wt=-over_represented_pvalue) %>% 
@@ -137,8 +139,8 @@ res %>%
              colour=over_represented_pvalue, 
              size=numDEInCat)) + geom_point() + expand_limits(x=0) +
   labs(x="Hits (%)", y="GO term", colour="p value", size="Count", 
-       title = paste('GOseq enriched', sep='')) + theme_bw()
-  #facet_wrap(~ sample)
+       title = paste('GOseq enriched', sep='')) + theme_bw() +
+  facet_grid(ontology ~. ,scales = 'free', space = 'free')
 
 #GOTERM[[res$category[1]]]
 
@@ -147,6 +149,8 @@ res %>%
 
 
 # Then, use semantic analysis.
+# The heat map represents semantic similarity among gene ontology (GO) 
+# Biological Process (BP) terms. Rows and columns show the list of enriched GO BP terms derived from term enrichment analysis of Interaction significant genes. The colors represent the semantic distances calculated using GOSemSim Bioconductor package. 
 library(org.Hs.eg.db)
 library(clusterProfiler)
 
@@ -204,7 +208,7 @@ superheat(gosim,
           legend.height = 0.2,
           legend.width = 1,
           legend.text.size = 7
-          #row.title = "Sample 1",
+          #row.title = "Molecular Functions ids"
           #column.title = "Sample 2",
 )
 
