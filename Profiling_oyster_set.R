@@ -167,7 +167,7 @@ getList <- function(go, de_df, f_pattern, GOtype = 'MF') {
 
 
 
-getList(go,de_df, T1_100, GOtype='MF') #448/727 in GOType (MF)
+getList(go,de_df, T1_100, GOtype='MF') # 448/727 in GOType (MF)
 getList(go,de_df, T1_200, GOtype='MF') # 224/407 in GOType (MF)
 getList(go,de_df, T3_100, GOtype='MF') # 22/53 in GOType (MF)
 getList(go,de_df, T3_200, GOtype='MF') # 236/380 in GOType (MF)
