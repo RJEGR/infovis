@@ -121,7 +121,7 @@ obj_longer %>% tibble::glimpse()
 # dataVis
 
 obj_longer %>%
-  ggplot(aes(x = Sampling_Area, y = ab, fill = Phylum)) +
+  ggplot(aes(x = Sampling_Are, y = ab, fill = Phylum)) +
   coord_flip() +
   geom_bar(stat = "identity", 
            position = "stack", color = "black")
@@ -193,13 +193,123 @@ obj_longer %>%
 obj_longer %>% View()
 
 obj_longer %>%
-  filter(Rep %in% "1") %>%
-  group_by(index, fileName) %>%
-  mutate(RA = raT(ab)) %>%
-  ggplot(aes(x = fileName, y = RA, fill = Phylum)) +
+  ggplot(aes(x = Sample, y = RA, fill = Phylum)) +
   coord_flip() + labs(x = 'Amplicon', y = 'Rel. Ab (%)') +
   geom_bar(stat = "identity", 
            position = "stack", color = "black") +
-  facet_grid( Sample ~., scales = "free_y") +
+  facet_grid(Amplicon ~ Rep, scales = "free_y") +
   ggsci::scale_fill_rickandmorty() +
   theme_classic(base_size = 14)
+
+#
+
+# elaboracion de heatmap con facet de amplicones
+
+
+obj_longer %>%
+  filter(Rep %in% "1") %>%
+  ggplot(aes(y = Family, x = Sample, fill = RA)) +
+  geom_tile() +
+  scale_fill_viridis_c(name = "Relative\nAbundance") +
+  guides(fill = guide_colorbar(barheight = unit(7, "cm"),  
+                               ticks.colour = "black", 
+                               frame.colour = "black")) +
+  facet_grid(Phylum+Class ~ Amplicon, scales="free", space = "free") +
+  theme(
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1),
+    strip.text.y = element_text(
+      angle = 0, 
+      size = 5),
+    strip.background = element_rect(colour = "black", 
+                                    fill = "transparent",
+                                    size = 0.1),
+    panel.spacing = unit(0.001, "lines")
+  )
+
+# grouped barplot
+
+obj_longer %>%
+  ggplot(aes(y = ab, x = Sample)) +
+  geom_bar(aes(fill = Amplicon), 
+           position = "dodge", stat = "identity") +
+  labs(y = "N reads") +
+  facet_wrap(~ Phylum, scales = "free_y") +
+  theme(axis.text.x = element_text(
+    angle = 45, hjust = 1, vjust = 1))
+
+# Probar bajo tu propio riesgo!!!
+
+# Charge the circlize library
+library(circlize)
+# https://jokergoo.github.io/circlize_book/book/advanced-usage-of-chorddiagram.html
+
+
+set.seed(100121)
+
+grid.col <- rep("grey", 6)
+names(grid.col) <- unique(obj_longer$Amplicon)
+
+# establecer paleta de colores de filos
+
+g <- ggplot_build(plot)
+col_palette <- c(unique(g$data[[1]]["fill"]))$fill
+names(col_palette) <- unique(g$plot$data$Phylum)
+
+circos.clear()
+
+obj_longer %>% 
+  filter(ab > 0) %>%
+  select(Amplicon, Phylum) %>%
+  with(., table(Phylum, Amplicon)) %>%
+  chordDiagram(grid.col = c(grid.col, col_palette),
+               annotationTrack = "grid", 
+               preAllocateTracks = 1,
+               small.gap = 5)
+
+circos.track(track.index = 1, panel.fun = function(x, y) {
+  circos.text(CELL_META$xcenter, CELL_META$ylim[1], 
+              CELL_META$sector.index, 
+              facing = "clockwise", 
+              niceFacing = TRUE, adj = c(0, 0.5))
+}, bg.border = NA)
+
+abline(h = 0.05, lty = 2, col = "#00000080")
+
+#treemap
+
+library(treemap)
+
+
+# Make input for an alluvial plot of amplicons
+
+obj_longer %>%
+  group_by(Family, Sampling_Area) %>%
+  filter(ab > 0) %>%
+  summarise(n = length(Family), N = sum(ab)) %>%
+  # inner_join(obj_longer %>% distinct(Family, .keep_all = T)) %>%
+  # select_at(vars(ranks, n, N)) %>%
+  treemap(index = c("Sampling_Area","Family"),
+          vSize = "n", type="index",
+          border.col=c("black","white"),
+          palette = "Set1", 
+          title="",
+          fontsize.labels = 10)
+# input for alluvial plot
+
+library(ggalluvial)
+
+obj_longer %>%
+  filter(Rep %in% "1") %>%
+  filter(Sample %in% "Cantiles") %>%
+  # group_by(Amplicon, Phylum) %>% # Sanity check w/o Phylum grouping
+  filter(ab > 0) %>%
+  count(Amplicon, Phylum) %>%
+  mutate_if(is.character, as.factor) %>%
+  tibble::rowid_to_column() -> alluvInput
+
+table(alluvInput$Amplicon)
+
+alluvInput %>%
+  ggplot(aes(x = Amplicon, stratum = Phylum)) +
+  geom_stratum()
