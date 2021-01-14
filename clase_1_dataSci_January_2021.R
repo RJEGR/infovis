@@ -346,6 +346,7 @@ obj_longer %>%
   theme_bw()
 
 # arrange by factors and facets
+
 # https://trinkerrstuff.wordpress.com/2016/12/23/ordering-categories-within-ggplot2-facets/
 
 
