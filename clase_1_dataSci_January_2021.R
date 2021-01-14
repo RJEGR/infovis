@@ -183,12 +183,15 @@ my_tidy_function(files[1])
 # Concatenate tidy 
 
 obj_longer <- lapply(files, my_tidy_function) %>% do.call(rbind, .)
-obj_longer %>% tibble::glimpse()
 
 obj_longer %>% 
   separate(col = linaje, into = ranks, sep = '[.]') %>% 
   mutate_at(ranks, funs(str_replace_all(., c("^D_[0-9]__"="")))) %>%
-  separate(col = Replicate, into = c('Sample','Rep'), sep = '_') -> obj_longer
+  separate(col = Replicate, into = c('Sample','Rep'), sep = '_') %>%
+  mutate(Amplicon = str_replace_all(fileName, "_level-5.csv", "")) -> obj_longer
+
+obj_longer %>% tibble::glimpse()
+
 
 obj_longer %>% View()
 
@@ -313,3 +316,61 @@ table(alluvInput$Amplicon)
 alluvInput %>%
   ggplot(aes(x = Amplicon, stratum = Phylum)) +
   geom_stratum()
+
+
+
+
+
+# 
+
+dir <- '~/Downloads/archivosarticulosloberas/'
+files <- list.files(path = dir, pattern = ".xlsx", full.names = T)
+
+obj <- readxl::read_xlsx(files[1])
+
+obj %>% 
+  select_if(is.double) %>% names() -> colNames
+
+obj %>% 
+  pivot_longer(cols = colNames, values_to = "RA", names_to = "Index") %>%
+  separate(Index, into = c("Sample", "index", "Rep"), sep = "-") %>%
+  select(-pathway, -SubPathway, -index) -> obj_longer
+
+obj_longer %>%
+  filter(Rep %in% "1") %>%
+  filter(RA > 1) %>%
+  ggplot(aes(x = SuperPathway, y = RA, fill = Category)) +
+  geom_col() +
+  coord_flip() +
+  facet_grid(~ Sample) +
+  theme_bw()
+
+# arrange by factors and facets
+# https://trinkerrstuff.wordpress.com/2016/12/23/ordering-categories-within-ggplot2-facets/
+
+
+obj_longer %>%
+  filter(Rep %in% "1") %>%
+  group_by(Sample) %>%
+  ggplot(aes(y = reorder_within(SuperPathway, RA, Sample), 
+             x = RA, fill = Category)) +
+  geom_col() +
+  facet_wrap(~ Sample, scales = "free_y")
+
+
+library(babynames)
+top_names <- babynames %>% 
+  filter(year >= 1950,
+         year < 1990) %>% 
+  mutate(decade = (year %/% 10) * 10) %>% 
+  group_by(decade) %>%
+  count(name, wt = n) %>% 
+  group_by(decade) %>% 
+  top_n(10)
+
+top_names %>% 
+  ggplot(aes(y = reorder_within(name, n, decade), 
+             x = n)) + 
+  geom_col(show.legend = FALSE) + 
+  facet_wrap(~ decade, scales = "free_y") +
+  labs(x = NULL, y = NULL)
