@@ -10,6 +10,7 @@ library(tidyverse)
 path <- '~/transcriptomics/Diana_Lara/Diana_results/'
 
 fileName <- 'Network_signed_nomerge_RLDfiltered.RData'
+
 datExpr_file <- 'datExpr.rds'
   
 datExpr <- readRDS(file = paste0(path, '/', datExpr_file))
@@ -18,7 +19,9 @@ load(paste0(path,'/', fileName))
 
 # how modules where obtained:
 nm <- table(moduleColors)
+
 cat('Number of mudules obtained\n :', length(nm))
+
 print(nm)
 
 plotDendroAndColors(geneTree, moduleColors, c("Dynamic Tree Cut", "Merged dynamic"), dendroLabels= FALSE, hang=0.03, addGuide= TRUE, guideHang=0.05)
@@ -26,9 +29,12 @@ plotDendroAndColors(geneTree, moduleColors, c("Dynamic Tree Cut", "Merged dynami
 # Load neuropeptide
 
 wd <-'~/transcriptomics/Diana_Lara/neuropeptides'
+
 # options(stringsAsFactors = F)
 
-neuropep <- dir(path = wd, pattern = 'neuropeptide.xls', full.names = T)
+neuropep <- dir(path = wd, 
+                pattern = 'neuropeptide.xls', 
+                full.names = T)
 
 annot <- dir(path = wd, pattern = 'Trinotate.xls', full.names = T)
 

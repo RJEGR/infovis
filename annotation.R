@@ -139,7 +139,7 @@ plot_NOGs(x, "transcript_id")
 system("rm NOG.annotations.tsv")
 
 # ====
-
+library(ggpubr)
 plotgos <- head(gos[order(-gos$transcripts),], 100)
 
 bar <- ggbarplot(plotgos, "name", "transcripts",
@@ -156,7 +156,7 @@ bar <- ggbarplot(plotgos, "name", "transcripts",
 
 
 #png(filename = paste0(file, 'plot_NOGs.png'), height = 28,width = 36,res = 300,units = "cm")
-bar + theme(axis.text.x = element_text(angle = 75, hjust = 1, size = 5))
+bar + theme(axis.text.x = element_text(angle = 75, hjust = 1, size = 10))
 #dev.off()
 
 # ====== blastp or blastp
