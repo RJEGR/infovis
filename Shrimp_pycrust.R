@@ -84,7 +84,8 @@ obj <- read_xlsx(files[2])
 
 # clean taxonomy
 obj %>%
-  mutate_at(ranks, funs(str_replace_all(., c("_[1-9]" = "")))) -> obj
+  mutate_at(ranks, 
+            funs(str_replace_all(., c("_[1-9]" = "")))) -> obj
 
 obj %>%
   select_if(is.double) %>%
@@ -139,20 +140,20 @@ ggsave(POrder, filename = "Bar_Order.png", path = dir,
 
 agglom_lev <- "Family"
 
-obj %>% 
-  pivot_longer(cols = colNames, 
-               names_to = "Index", values_to = 'ab') %>%
-  filter(ab > 0) %>%
-  rename("Level" = agglom_lev) %>%
-  # mutate(Level = str_replace_all(Level, c("_[1-9]" = ""))) %>%
-  group_by(Level, Index) %>%
-  summarise(ab = sum(ab), Freq = length(Level > 0)) %>%
-  inner_join(mtd) %>%
-  filter(grepl('ceae', Level)) %>% 
-  group_by(Tissue) %>%
-  mutate(RA = (ab / sum(ab)) * 100)  -> Fam_agg
-
-Fam_agg %>% group_by(Tissue) %>% summarise(sum(RA))
+# obj %>% 
+#   pivot_longer(cols = colNames, 
+#                names_to = "Index", values_to = 'ab') %>%
+#   filter(ab > 0) %>%
+#   rename("Level" = agglom_lev) %>%
+#   # mutate(Level = str_replace_all(Level, c("_[1-9]" = ""))) %>%
+#   group_by(Level, Index) %>%
+#   summarise(ab = sum(ab), Freq = length(Level > 0)) %>%
+#   inner_join(mtd) %>%
+#   filter(grepl('ceae', Level)) %>% 
+#   group_by(Tissue) %>%
+#   mutate(RA = (ab / sum(ab)) * 100)  -> Fam_agg
+# 
+# Fam_agg %>% group_by(Tissue) %>% summarise(sum(RA))
 
 # prepare data to select top
 
@@ -216,7 +217,7 @@ obj %>%
                names_to = "Index", values_to = 'ra') %>%
   filter(ra > 0) %>% inner_join(mtd) -> dataHeat
 
-# sanity check
+# sanity check ----
 
 dataHeat %>% group_by(Tissue, Index) %>% summarise(sum(ra))
 
@@ -266,21 +267,77 @@ ggsave(heatPlot, filename = "heatmap.png", path = dir,
 # Check redundant abreviation nomenclature ----
 # raw datavis
 
-obj %>% filter(!grepl('ceae', Family)) %>% arrange(desc(ab_agg))-> rawDv
+# sum(table(obj$`Feature ID`) > 1)
 
-library(stringr)
+obj %>% filter(!grepl('ceae', Family)) %>% 
+  pivot_longer(cols = colNames, 
+               names_to = "Index", values_to = 'ab') %>%
+  rename("Level" = agglom_lev) %>%
+  filter(ab > 0) %>%
+  arrange(desc(Level)) %>%
+  # mutate(Level = ifelse(!grepl('ceae', Level), NA) %>%
+  group_by(Level) %>%
+  select(-`Feature ID`) -> df1
 
-ranks <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
+color_by = "Phylum"
+labels <- df1 %>% pull(color_by) %>% unique() %>% sort()
+colourCount = length(labels)
 
-obj_longer %>% mutate_at(ranks, funs(str_replace_all(., c("^NA_[1-1000]" = NA)))) 
+library(ggsci)
+if(colourCount > 7) {
+  getPalette <- colorRampPalette(pal_locuszoom()(7))(colourCount)
+} else
+  getPalette <- pal_locuszoom()(colourCount)
 
-mutate_at(ranks, funs(str_replace_all(., c("^D_[0-9]__" = "")))) -> obj_longer
 
-obj_longer %>%
-  separate(col = Replicate, into = c("Sample", "Rep"),
-           sep = "_") -> obj_longer
-  
+df1 %>% 
+  summarise(Freq = sum(ab > 0), ab = sum(ab)) %>%
+  left_join(., df1 %>% 
+              distinct(Level, .keep_all = T) %>% 
+              select_if(is.character), by = "Level") %>% 
+  arrange(desc(Freq)) %>%
+  mutate(wrap = ifelse(ab > 60, "A", "B")) %>%
+  ggplot() +
+  geom_point(aes(Freq, ab, color = Phylum)) +
+  facet_grid(wrap ~., scales = "free") +
+  ggrepel::geom_label_repel(aes(Freq, ab, 
+                                label = Level,
+                                color = Phylum)) +
+  theme_classic(base_size = 16) +
+  theme(
+    # legend.position = "none",
+    strip.text.y = element_blank(), 
+    strip.background = element_blank()) +
+  labs(x = "Features Frequency (# ASVs)", 
+       y = "Abundance (Reads)") +
+  scale_color_manual(labels = labels, values = getPalette) -> p1
+
+df1 %>% 
+  ggplot() +
+  geom_freqpoly(aes(ab, color = Phylum), 
+                 binwidth = 10) +
+  # facet_grid(Phylum ~., scales = "free_y") +
+  coord_flip() + labs(x = "", 
+                      y = "") +
+  scale_color_manual(labels = labels, values = getPalette) +
+  theme_classic(base_size = 16) +
+  theme(legend.position = "none") -> p2
+
+# devtools::install_github("thomasp85/patchwork")
+library(patchwork)
+
+p2 + p1  + 
+  plot_layout(widths = c(1, 2), heights = c(1,NULL)) -> p
+
+
+
+ggsave(p, filename = "redundant_abreviations.png", path = dir, 
+       width = 10, height = 5)
+
+
+
 # test features diversity ----
+
 source("~/Documents/GitHub/metagenomics/estimate_richness.R")
 
 obj %>%
