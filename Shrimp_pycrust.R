@@ -11,6 +11,7 @@ library(pheatmap)
 # install_github("raivokolde/pheatmap")
 
 obj <- read_xlsx(files[1])
+
 mtd_file <- list.files(path = dir, pattern = "CIAD_MappingFile.txt$", full.names = TRUE)
 
 mtd <- read.csv(mtd_file, sep = "\t") %>% 
@@ -30,7 +31,6 @@ obj %>%
 
 # arrange by factor
 
-
 obj_longer %>%
   arrange(desc(Category)) %>%
   mutate(SuperPathway = factor(SuperPathway, 
@@ -41,9 +41,10 @@ obj_longer %>%
 # Which noised data we've? (look at x-axis)
 
 dataViz %>%
+  filter(RA > 0) %>%
   group_by(Index) %>%
   mutate(Z = RA - mean(RA) / sd(RA)) %>%
-  ggplot(aes(RA, fill = cut(RA, 100))) +
+  ggplot(aes(Z, fill = cut(RA, 100))) +
   geom_histogram(show.legend = F, bins = 100) +
   facet_wrap(~ Tissue)
 
@@ -60,6 +61,7 @@ LCategory <- dataViz %>% group_by(Category) %>% summarise(t = sum(RA)) %>% arran
 library(ggsci)
 
 labels <- dataViz %>% pull(Category) %>% unique() %>% sort()
+
 fillCol <- length(labels)
 
 if(fillCol > 26) {
@@ -88,43 +90,85 @@ ggsave(barPlot, filename = "barKegg.png", path = dir,
 
 # pheatmap ----
 # en base a las 33 categorias de L2 ie. obj %>% group_by(SuperPathway)
+# # estadistico por tejido para tomar las significativos funcionales de cada tejido
+
 
 obj %>% select_at(vars(!colNames)) %>% distinct(SuperPathway, .keep_all = T) -> left_j
 
-obj %>% 
-  group_by(SuperPathway) %>%
-  summarise_at(vars(colNames), sum) %>%
-  left_join(left_j) -> L3_agg
 
-annotation_colors <- unique(L3_agg$Category)
-names(annotation_colors) <- unique(L3_agg$Category)
+# filtering by: ? ----
+
+obj %>% select_if(is.double) %>% pull() %>% na.omit() %>% data.frame(x = .) %>% 
+  ggplot() + geom_histogram(aes(x), bins = 70)
+
+obj %>% 
+  pivot_longer(cols = all_of(colNames), 
+               values_to = "RA", 
+               names_to = "Index") %>%
+  left_join(mtd) %>%
+  group_by(SuperPathway, Tissue) %>%
+  summarise(mean_ab = mean(RA)) %>%
+  filter(mean_ab > 1) %>%
+  pivot_wider(names_from = Tissue, values_from = mean_ab) %>%
+  left_join(left_j) %>%
+  ungroup() %>%
+  arrange(Category) %>%
+  mutate(SuperPathway = forcats::fct_reorder(SuperPathway, Category)) -> L3_agg
+
+
+
+# annotation_colors <- unique(L3_agg$Category)
+labels <- L3_agg %>% pull(Category) %>% unique() %>% sort()
+
+fillCol <- length(labels)
+
+if(fillCol > 26) {
+  annotation_colors <- colorRampPalette(pal_ucscgb()(26))(fillCol)
+} else
+  annotation_colors <- pal_ucscgb()(fillCol)
+
+
+
+names(annotation_colors) <- labels
 annotation_colors <- list(Category = annotation_colors)
 
 my_gene_col <- data.frame(row.names = L3_agg$SuperPathway, 
                           Category = factor(L3_agg$Category, levels = unique(L3_agg$Category)))
 
 my_sample_col <- mtd[-1] %>% as.data.frame()
-row.names(my_sample_col) <- colNames
 
+# row.names(my_sample_col) <- colNames
 
 # 
-# n <- nrow(obj)
-# pal <- colorRampPalette(ggsci::pal_material(palette = c("purple"),n = n, alpha = 1, reverse = F)(n))
+n <- nrow(L3_agg)
+
+# pal <-  colorRampPalette(pal_material(palette = c("purple"))(10))(n)
+
+pal <- viridis::viridis(n)
+
+pheatmap(test, annotation_col = annotation_col, annotation_row = annotation_row,  
+         annotation_colors = ann_colors)  
 
 L3_agg %>%
-  select_at(vars(colNames)) %>%
+  select_if(is.double) %>%
   data.frame(row.names = rownames(my_gene_col), .) %>% 
   pheatmap(., 
            annotation_row = my_gene_col, 
-           annotation_col = my_sample_col,
-           cluster_rows = T,
-           # color = pal,
+           annotation_col = annotation_colors,
+           cluster_rows = F,
            cluster_cols = T,
-           fontsize_row = 7,
+           cutree_rows = 3,
+           cutree_cols = 3,
+           na_col = "white",
+           cellwidth = 30,
+           angle_col = c("45"),
+           # legend_breaks = -1:4
+           # annotation_name_row = T,
+           color = pal,
+           fontsize = 14, 
            show_rownames = T) -> my_pheatmap
-           # annotation_colors = annotation_colors) 
 
-save_pheatmap_png <- function(x, filename, width= 1500, height=1400, res = 150) {
+save_pheatmap_png <- function(x, filename, width= 2000, height=1400, res = 150) {
   png(filename, width = width, height = height, res = res)
   grid::grid.newpage()
   grid::grid.draw(x$gtable)
@@ -132,4 +176,4 @@ save_pheatmap_png <- function(x, filename, width= 1500, height=1400, res = 150) 
 }
 
 save_pheatmap_png(my_pheatmap,
-                  paste0(dir, "/pheatmap_kegg.png"))
+                  paste0(dir, "/pheatmap_kegg_cluster_false.png"))
