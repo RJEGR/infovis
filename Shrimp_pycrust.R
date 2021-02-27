@@ -12,12 +12,11 @@ library(pheatmap)
 
 obj <- read_xlsx(files[1])
 
-mtd_file <- list.files(path = dir, pattern = "CIAD_MappingFile.txt$", full.names = TRUE)
+mtd_file <- list.files(path = dir, pattern = "CIAD_MappingFile.csv$", full.names = TRUE)
 
-mtd <- read.csv(mtd_file, sep = "\t") %>% 
-  select(Sample_IDs, Tissue, Time) %>%
-  rename(Index = Sample_IDs)
-
+mtd <- read.csv(mtd_file, sep = "\t")
+  # select(Sample_IDs, Tissue, Time) %>%
+  # rename(Index = Sample_IDs)
 
 obj %>%
   select_if(is.double) %>%
@@ -130,9 +129,10 @@ if(fillCol > 26) {
 
 
 names(annotation_colors) <- labels
+
 annotation_colors <- list(Category = annotation_colors)
 
-my_gene_col <- data.frame(row.names = L3_agg$SuperPathway, 
+my_gene_col <- data.frame(row.names = as.character(L3_agg$SuperPathway), 
                           Category = factor(L3_agg$Category, levels = unique(L3_agg$Category)))
 
 my_sample_col <- mtd[-1] %>% as.data.frame()
@@ -146,21 +146,20 @@ n <- nrow(L3_agg)
 
 pal <- viridis::viridis(n)
 
-pheatmap(test, annotation_col = annotation_col, annotation_row = annotation_row,  
-         annotation_colors = ann_colors)  
-
 L3_agg %>%
   select_if(is.double) %>%
   data.frame(row.names = rownames(my_gene_col), .) %>% 
   pheatmap(., 
            annotation_row = my_gene_col, 
-           annotation_col = annotation_colors,
-           cluster_rows = F,
+           annotation_colors = annotation_colors,
+           cluster_rows = T,
            cluster_cols = T,
            cutree_rows = 3,
            cutree_cols = 3,
            na_col = "white",
            cellwidth = 30,
+           cex = 1,
+           border_color = T,
            angle_col = c("45"),
            # legend_breaks = -1:4
            # annotation_name_row = T,
@@ -176,4 +175,10 @@ save_pheatmap_png <- function(x, filename, width= 2000, height=1400, res = 150) 
 }
 
 save_pheatmap_png(my_pheatmap,
-                  paste0(dir, "/pheatmap_kegg_cluster_false.png"))
+                  paste0(dir, "/pheatmap_kegg_cluster_true.png"))
+
+library(grid)
+
+grid.ls(grid.force())
+grid.gedit("GRID.rect.17286", gp = gpar(col="white"))
+grid.draw(my_pheatmap)
