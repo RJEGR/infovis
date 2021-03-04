@@ -13,39 +13,67 @@ count <- read.delim(countf, sep = "\t")
 
 colNames <- names(count)
 count %>% 
-  pivot_longer(colNames) %>%
-  mutate(id = name) %>%
-  mutate(group = substr(name, 1, 14)) %>%
-  separate(col = name, into = c("Tissue", "Sex", "x", "y", "Temp", "SampleType"), sep = "_") -> count_longer
+  as_tibble(rownames = "gene") %>%
+  pivot_longer(colNames, names_to = "id") %>%
+  left_join(mtd, by = "id") -> count_longer
+  # mutate(id = name) %>%
+  # mutate(group = substr(name, 1, 14)) %>%
+  # separate(col = name, into = c("Tissue", "Sex", "x", "y", "Temp", "SampleType"), sep = "_") -> count_longer
+
+
+# count_longer %>%
+#   select(-value) %>%
+#   distinct() %>%
+#   select(Tissue, SampleType, id, group, x) %>%
+#   mutate(group = gsub("GL[A-B]","GLO" ,group)) %>%
+#   mutate(Tissue = ifelse(Tissue %in% c("GLA","GLB"), "GLO", Tissue)) %>%
+#   mutate(Tissue = recode(Tissue, GLO = "Optic\nGland",GOV = "Oviducal\nGland", 
+#                          LOP = "Optic\nLobe")) %>%
+#   mutate(x = recode(x, PR = "PRE",DE = "Spawing", PO = "POST")) %>%
+#   rename("stage" = x) -> mtd
+
+
+# write_delim(mtd, file = paste0(path, "metadata.tsv"), delim = "\t", col_names = T)
+
 
 # count_longer %>% group_by(group)
+count_longer %>%
+  group_by(SampleType, stage, Tissue) %>%
+  filter(!SampleType %in% "P") %>%
+  summarise(x = mean(value)) %>%
+  friedman.test(x ~ SampleType |stage , data = .) 
 
 count_longer %>%
-  group_by(group) %>%
-  mutate(group = ifelse(SampleType != "P", group, "Pool")) %>%
-  ggplot() +
-  geom_boxplot(aes(id, log2(value+1), color = group)) +
+  ggplot(aes(x = id, y = log2(value+1))) +
+  geom_boxplot(aes(color = stage)) +
+  # geom_violin(aes(color = stage)) +
+  scale_x_discrete(position = "top") +
+  stat_summary(fun=mean, geom="point", shape=18, size=3, color="black") +
   facet_grid(Tissue~ ., scales = "free") +
   scale_color_brewer(palette = "Set1") +
   labs(x = "", y = expression(~Log[2]~(x~+1))) +
-  theme_bw(base_family = "GillSans", base_size = 14) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 12)) ->p1
+  theme_classic(base_family = "GillSans", base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0, vjust = 0, size = 12)) +
+  ggh4x::facet_nested( ~ Tissue, scales = "free", nest_line = TRUE, switch = "x") -> p
+  
   # limma::normalizeQuantiles()
 
-count_longer %>%
-  select(-value) %>%
-  distinct() %>%
-  select(Tissue, SampleType, id, group, x) %>%
-  mutate(group = gsub("GL[A-B]","GLO" ,group)) %>%
-  mutate(Tissue = ifelse(Tissue %in% c("GLA","GLB"), "GLO", Tissue)) %>%
-  mutate(Tissue = recode(Tissue, GLO = "Optic\nGland",GOV = "Oviducal\nGland", 
-                                LOP = "Optic\nLobe")) %>%
-  mutate(x = recode(x, PR = "PRE",DE = "Spawing", PO = "POST")) %>%
-  rename("stage" = x) -> mtd
+# mean replicates ----
 
+count0 %>%
+  as_tibble(rownames = "ID") %>%
+  pivot_longer(cols = colNames, names_to = "id") %>%
+  left_join(mtd) %>%
+  group_by(ID, group) %>%
+  summarise(value = mean(value)) %>%
+  pivot_wider(names_from = "group", values_from = "value") %>%
+  data.frame(row.names = .$ID) %>% select(-ID) -> count
 
-write_delim(mtd, file = paste0(path, "metadata.tsv"), delim = "\t", col_names = T)
+count <- round(count, digits = 3)
+file_out <- "counts_table_length_ajus_gen_level-aproach2-filtered_mean_reps.txt"
+write.table(count, file = paste0(path, '/',file_out), sep = "\t", quote = F)
 
+# PCA ----
 PCA <- prcomp(t(log2(count+1)), scale. = FALSE)
 percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
 sd_ratio <- sqrt(percentVar[2] / percentVar[1])

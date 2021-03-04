@@ -6,18 +6,20 @@ rm(list = ls())
 # ==============
 
 .cran_packages <- c("wTO", "CoDiNA") # "tidyverse"
-.bioc_packages <- c("edgeR","DESeq2", "biomaRt", "topGO", "Rgraphviz", "wTO")
+# .bioc_packages <- c("edgeR","DESeq2", "biomaRt", "topGO", "Rgraphviz", "wTO")
 
 .inst <- .cran_packages %in% installed.packages()
 if(any(!.inst)) {
   install.packages(.cran_packages[!.inst], dep=TRUE, repos='http://cran.us.r-project.org')
 }
-.inst <- .bioc_packages %in% installed.packages()
-if(any(!.inst)) {
-  if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-  BiocManager::install(.bioc_packages[!.inst], ask = F)
-}
+# .inst <- .bioc_packages %in% installed.packages()
+# if(any(!.inst)) {
+#   if (!requireNamespace("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+#   BiocManager::install(.bioc_packages[!.inst], ask = F)
+# }
+
+source("~/Documents/GitHub/Estadistica_UABC/anova_and_gaussianity.R")
 
 # load count data
 
@@ -25,9 +27,10 @@ path <- "~/transcriptomics/oktopus_full_assembly/"
 pattern <- "counts_table_length_ajus_gen_level-aproach2-filtered.txt"
 countf <- list.files(path = path, pattern = pattern, full.names = T)
 
-dim(count <- read.delim(countf, sep = "\t"))
+dim(count0 <- read.delim(countf, sep = "\t"))
 
-mtd <- read.delim(paste0(path, "metadata.tsv"), sep = "\t")
+mtd <- read.delim(paste0(path, "metadata.tsv"), sep = "\t") 
+
 
 # load up/down regulated overlaps  (lists)
 
@@ -61,6 +64,7 @@ names_from <-  c("Tissue", "Intercept", "Develope")
 library(UpSetR)
 
 colNames <- names(count)
+  
 # nota: la lista de genes up Glandula_oviducalDESvsLO_GO, corresponde a la comparacion de la glandula oviductal(en desove) vs el promedio de la expresión de Glandula optica (GO) con lobulo optico (LO).
 # count %>%
 #   filter(rownames(.) %in% unique(dff$ID)) %>%
@@ -102,8 +106,9 @@ dff %>%
 ggsave(p1, filename = "significance_hist_tissue_vs_intercept.png", path = path, width = 7, height = 7)
   
 # test outliers
+colNames <- names(count0) 
 
-count %>% 
+count0 %>% 
   filter(rownames(.) %in% unique(dff$ID)) %>%
   pivot_longer(cols = colNames, values_to = "x", names_to = "id") %>% 
   group_by(id) %>% mutate(ecdf = ecdf(x)(x)) %>% arrange(desc(x)) %>%
@@ -112,7 +117,7 @@ count %>%
   group_by(Tissue) %>%
   mutate(x = log2(x+1), cor = cor(x, ecdf, method = "pearson")) %>% 
   # ggplot() + geom_point(aes(x, ecdf , color = cor), alpha = 0.8) +facet_grid(~Tissue)
-  ggplot() + stat_ecdf(aes(x , color = Tissue), size = 1) + # group = id
+  ggplot() + stat_ecdf(aes(x , color = Tissue), size = 1) + # group = group
   # geom_smooth(aes(x, ecdf, color = Tissue), se = F, method = "lm")  +
   scale_y_reverse() +
   scale_color_brewer(palette = "Set1") +
