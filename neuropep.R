@@ -1,13 +1,15 @@
 wd <-'~/transcriptomics/Diana_Lara/neuropeptides'
 # options(stringsAsFactors = F)
 
-count <- dir(path = wd, pattern = 'iso.counts.matrix', full.names = T)
+# count <- dir(path = wd, pattern = 'iso.counts.matrix', full.names = T)
+path <- "~/transcriptomics/oktopus_full_assembly/"
+countf <- list.files(path = path, pattern = "counts_table_length_ajus_gen_level-aproach2-filtered.txt", full.names = T)
 neuropep <- dir(path = wd, pattern = 'neuropeptide.xls', full.names = T)
 
 # 
 
 
-data <- read.table(count, header=T, row.names=1, com='')
+data <- read.delim(countf, sep = "\t")
 
 # get colors ----
 cond <- names(data)
@@ -70,10 +72,9 @@ htmlwidgets::saveWidget(widget, paste0(wd, "/pfam.html"))
 
 
 # parse ----
-
-signifGenes <- unique(y$transcript_id)
-
-# sum(signifGenes %in% rownames(dds))
+sum(rownames(data) %in% y$gene_id)
+# signifGenes <- unique(y$transcript_id)
+signifGenes <- as.character(unique(y$gene_id))
 
 counts(dds, normalized = TRUE)[signifGenes, ] %>%
   as_tibble(rownames = 'transcript') %>% 
