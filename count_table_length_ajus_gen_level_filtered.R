@@ -9,12 +9,12 @@ library(RColorBrewer)
 path <- "~/transcriptomics/oktopus_full_assembly/"
 countf <- list.files(path = path, pattern = "counts_table_length_ajus_gen_level-aproach2-filtered.txt", full.names = T)
 count <- read.delim(countf, sep = "\t")
-
+mtd <- read.delim(paste0(path, "metadata.tsv"), sep = "\t") 
 
 colNames <- names(count)
 count %>% 
   as_tibble(rownames = "gene") %>%
-  pivot_longer(colNames, names_to = "id") %>%
+  pivot_longer(all_of(colNames), names_to = "id") %>%
   left_join(mtd, by = "id") -> count_longer
   # mutate(id = name) %>%
   # mutate(group = substr(name, 1, 14)) %>%
@@ -35,27 +35,70 @@ count %>%
 
 # write_delim(mtd, file = paste0(path, "metadata.tsv"), delim = "\t", col_names = T)
 
+table(mtd$group)
 
-# count_longer %>% group_by(group)
+library(rstatix)
+library(ggpubr)
+groups <- mtd$group
+table(groups)
+groups[which(table(groups) >= 2)]
+mtd %>% filter(grepl("LOP", id) | grepl("GL[A-B]", id)) %>% pull(id) -> unpairedReps
+      
 count_longer %>%
-  group_by(SampleType, stage, Tissue) %>%
-  filter(!SampleType %in% "P") %>%
-  summarise(x = mean(value)) %>%
-  friedman.test(x ~ SampleType |stage , data = .) 
+  filter(Tissue %in% c("Optic\nLobe")) %>%
+  # filter(id %in% unpairedReps) %>%
+  filter(value > 0) %>%
+  mutate(SampleType = ifelse(grepl("GLA", id),"1", SampleType)) %>%
+  mutate(SampleType = ifelse(grepl("GLB", id),"2", SampleType)) %>%
+  group_by(group) %>%
+  kruskal_test(value ~ SampleType)
+  t_test(value ~ SampleType, paired = FALSE, conf.level = 0.95) %>%
+  mutate(group1 = paste0(group,"_",group1),
+         group2 = paste0(group,"_",group2)) %>%
+  mutate(group1 = ifelse(grepl("GLO_H_PR_AD_24_1", group1),"GLA_H_PR_AD_24_P", group1)) %>%
+  mutate(group2 = ifelse(grepl("GLO_H_PR_AD_24_2", group2),"GLB_H_PR_AD_24_P", group2)) -> stat.test
 
+# Create a box plot
 count_longer %>%
-  ggplot(aes(x = id, y = log2(value+1))) +
-  geom_boxplot(aes(color = stage)) +
-  # geom_violin(aes(color = stage)) +
-  scale_x_discrete(position = "top") +
-  stat_summary(fun=mean, geom="point", shape=18, size=3, color="black") +
-  facet_grid(Tissue~ ., scales = "free") +
-  scale_color_brewer(palette = "Set1") +
-  labs(x = "", y = expression(~Log[2]~(x~+1))) +
+  filter(Tissue %in% c("Optic\nLobe")) %>%
+  # filter(id %in% unpairedReps[1:2]) %>%
+  filter(value > 0) %>%
+  mutate(stage = factor(stage, levels = c("PRE", "Spawing", "POST"))) %>%
+  # mutate(id = forcats::fct_reorder(id, as.numeric(SampleType))) %>%
+  mutate(value = log2(value+1)) %>%
+  ggplot(aes(id, value)) + 
+  geom_boxplot(outlier.size = 0, alpha=0.2) + # outlier.shape=NA
+  ylim(0, 20) +
   theme_classic(base_family = "GillSans", base_size = 14) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 0, vjust = 0, size = 12)) +
-  ggh4x::facet_nested( ~ Tissue, scales = "free", nest_line = TRUE, switch = "x") -> p
-  
+  scale_x_discrete(position = "bottom") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10)) +
+  labs(x = "", y = expression(~Log[2]~(x~+1))) +
+       # caption = "For replicates a unpaired t test was evaluated (confidence = 0.95)") +
+  ggh4x::facet_nested( ~ group, scales = "free", space = "free", nest_line = TRUE, switch = "x") -> p
+
+
+
+# Add the p-value manually
+stat.test %>% filter(grepl("LOP", group)) -> stats
+p + stat_pvalue_manual(stats, label = "p.adj.signif", remove.bracket = F, y.position = c(15, 18, 20)) -> p
+
+# # stat.test %>% filter(grepl("GLO", group)) -> stats
+# p1 + stat_pvalue_manual(stats, label = "p.adj.signif",
+#                         remove.bracket = F, y.position = c(15)) -> p1
+# p1  + theme(axis.title.y=element_blank(),
+#              axis.text.y=element_blank(),
+#              axis.ticks.y=element_blank(),
+#             axis.line.y = element_blank()) -> p1
+
+p1 + scale_x_discrete(labels= c("GLA", "GLB")) -> p1
+# 
+p + scale_x_discrete(labels=rep(paste0("Replicate ", 1:3), 3)) -> p
+
+library(patchwork)
+p + p1 + plot_layout(widths = c(4, 1.2), heights = c(4, 1)) -> p2
+
+ggsave(p2, filename = "boxplot_replicates_samples.png", path = path, 
+       width = 8, height = 6)
   # limma::normalizeQuantiles()
 
 # mean replicates ----
