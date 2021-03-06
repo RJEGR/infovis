@@ -11,11 +11,27 @@ countf <- list.files(path = path, pattern = "counts_table_length_ajus_gen_level-
 count <- read.delim(countf, sep = "\t")
 mtd <- read.delim(paste0(path, "metadata.tsv"), sep = "\t") 
 
+# barplot(colSums(edgeR::cpm(count)))
+# barplot(colSums(count))
+
 colNames <- names(count)
+
+# count <- edgeR::cpm(count)
 count %>% 
   as_tibble(rownames = "gene") %>%
   pivot_longer(all_of(colNames), names_to = "id") %>%
   left_join(mtd, by = "id") -> count_longer
+
+topGenes <- sort(rowSums(edgeR::cpm(count)), decreasing = T)
+topGenes <- names(head(topGenes, n = 100))
+
+count_longer %>%
+  filter(gene %in% topGenes) %>%
+  select(gene, id, value) %>%
+  pivot_wider(names_from = id, values_from = value, values_fill = NA) %>%
+  mutate_if(is.double, function(x) log2(x+1)) %>%
+  data.frame(row.names = 'gene') %>%
+  superheat::superheat(., row.dendrogram = T, membership.cols = mtd$Tissue, heat.na.col = 'white')
   # mutate(id = name) %>%
   # mutate(group = substr(name, 1, 14)) %>%
   # separate(col = name, into = c("Tissue", "Sex", "x", "y", "Temp", "SampleType"), sep = "_") -> count_longer
@@ -43,20 +59,112 @@ groups <- mtd$group
 table(groups)
 groups[which(table(groups) >= 2)]
 mtd %>% filter(grepl("LOP", id) | grepl("GL[A-B]", id)) %>% pull(id) -> unpairedReps
-      
+
+# is normal?
+source("~/Documents/GitHub/Estadistica_UABC/anova_and_gaussianity.R")
+
+count_longer %>% 
+  rename("g" = "id", x = value) %>%
+  # mutate(x = log2(x +1)) %>%
+  is_parametric() %>% arrange(desc(outliers))
+
+
+qqfun <- function(x) {
+  x <- x[x > 0]
+  qq <- qqnorm(x, plot.it = F) 
+  qq %>% as_tibble()
+}
+
+zfun <- function(x) {
+  x <- x[x > 0]
+  z <- c((x - mean(x)) / sd(x))
+  # z %>% as_tibble()
+  return(z)
+}
+
+xx <- log2(count$GLA_H_PR_AD_24_P+1)
+qqfun(xx) %>% rstatix::cor_test(x, y)
+plot(zfun(xx), qqfun(xx)$y)
+
 count_longer %>%
-  filter(Tissue %in% c("Optic\nLobe")) %>%
-  # filter(id %in% unpairedReps) %>%
+  filter(value > 0) %>%
+  group_by(id) %>%
+  mutate(x = log2(value +1)) %>% # 
+  summarise(qqfun(x)) %>%
+  mutate(z = zfun(y)) %>%
+  mutate(outlier = ifelse(abs(z)>3, TRUE, FALSE)) %>%
+  left_join(mtd) %>%
+  # rstatix::cor_test(x, y) %>%
+  # filter(id %in% unpairedReps[1:2]) %>%
+  ggplot(aes(x, y, group = id, shape = outlier)) +
+  geom_point(aes(color = z)) +
+  scale_shape_manual(name = expression("Outlier-"~sigma), values=c(3,1)) +
+  facet_wrap(~id) +
+  stat_cor(aes(group = id), method = "pearson", cor.coef.name = "R", p.accuracy = 0.001,
+           label.y = 18) +
+  theme_classic(base_family = "GillSans", base_size = 14) +
+  labs(x = "Expected", y = expression("Observed-"~Log[2]~(x~+1)),
+       caption = "Correlation Coefficient (Pearson) between theorical normal distribution (expected) against (observed) distribution in the count data.\nThe observed distribution doesn't fit a linear relatioship to a normal distribution (alfa 5%)") +
+  geom_smooth(method = "lm", linetype="dashed", size = 0.5, alpha=0.5, 
+              se = TRUE, na.rm = TRUE) +
+  # stat_regline_equation(label.y = 15) +
+  scale_color_viridis_c(name = expression(sigma)) +
+  guides(color = guide_colorbar(barheight = unit(5, "in"), 
+                               barwidth = unit(0.3, "in"),
+                               ticks.colour = "black", 
+                               frame.colour = "black",
+                               label.theme = element_text(size = 14))) -> sigmaP
+
+
+
+ggsave(sigmaP, filename = "outliers.png", path = path, 
+       width = 10, height = 10)
+
+count_longer %>% 
+  # filter(id %in% unpairedReps[1:2]) %>%
+  filter(value > 0) %>%
+  mutate(value = log2(value+1)) %>%
+  mutate(stage = factor(stage, levels = c("PRE", "Spawing", "POST"))) %>%
+  mutate(group = forcats::fct_reorder(group, as.numeric(stage))) %>%
+  ggqqplot(., x = "value", color = 'stage', add.params = list(linetype = "dashed"),
+           conf.int = TRUE) +
+  labs(x = "Expected", y = expression("Observed-"~Log[2]~(x~+1))) +
+  theme_classic(base_family = "GillSans", base_size = 14) +
+  facet_wrap(~group, scales = "free_y")  +
+  theme(legend.position = "top") -> qqP
+
+ggsave(qqP, filename = "ggqqplot.png", path = path, 
+       width = 10, height = 10)
+
+# The Wilcoxon rank sum test is a non-parametric alternative to the independent two samples t-test for comparing two independent groups of samples, in the situation where the data are not normally distributed
+
+count_longer %>% filter(id %in% unpairedReps) %>% 
   filter(value > 0) %>%
   mutate(SampleType = ifelse(grepl("GLA", id),"1", SampleType)) %>%
   mutate(SampleType = ifelse(grepl("GLB", id),"2", SampleType)) %>%
+  # filter(Tissue %in% c("Optic\nLobe")) %>%
+  # group_by(id) %>% get_summary_stats(value)
   group_by(group) %>%
-  kruskal_test(value ~ SampleType)
-  t_test(value ~ SampleType, paired = FALSE, conf.level = 0.95) %>%
+  # wilcox_effsize(value ~ SampleType, paired = FALSE, conf.level = 0.95) %>%
+  wilcox_test(value ~ SampleType, paired = FALSE, conf.level = 0.95) %>%
+  add_significance() %>%
   mutate(group1 = paste0(group,"_",group1),
          group2 = paste0(group,"_",group2)) %>%
   mutate(group1 = ifelse(grepl("GLO_H_PR_AD_24_1", group1),"GLA_H_PR_AD_24_P", group1)) %>%
   mutate(group2 = ifelse(grepl("GLO_H_PR_AD_24_2", group2),"GLB_H_PR_AD_24_P", group2)) -> stat.test
+
+# count_longer %>%
+#   mutate(SampleType = ifelse(grepl("GLA", id),"1", SampleType)) %>%
+#   mutate(SampleType = ifelse(grepl("GLB", id),"2", SampleType)) %>%
+#   filter(id %in% unpairedReps)
+#   # filter(Tissue %in% c("Optic\nLobe")) %>%
+#   filter(value > 0) %>%
+#   group_by(group) %>%
+#   t_test(value ~ SampleType, paired = FALSE, conf.level = 0.95) %>%
+#   mutate(group1 = paste0(group,"_",group1),
+#          group2 = paste0(group,"_",group2)) %>%
+#   mutate(group1 = ifelse(grepl("GLO_H_PR_AD_24_1", group1),"GLA_H_PR_AD_24_P", group1)) %>%
+#   mutate(group2 = ifelse(grepl("GLO_H_PR_AD_24_2", group2),"GLB_H_PR_AD_24_P", group2)) -> stat.test
 
 # Create a box plot
 count_longer %>%
@@ -73,31 +181,33 @@ count_longer %>%
   scale_x_discrete(position = "bottom") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10)) +
   labs(x = "", y = expression(~Log[2]~(x~+1))) +
-       # caption = "For replicates a unpaired t test was evaluated (confidence = 0.95)") +
   ggh4x::facet_nested( ~ group, scales = "free", space = "free", nest_line = TRUE, switch = "x") -> p
 
 
 
 # Add the p-value manually
+
 stat.test %>% filter(grepl("LOP", group)) -> stats
 p + stat_pvalue_manual(stats, label = "p.adj.signif", remove.bracket = F, y.position = c(15, 18, 20)) -> p
 
-# # stat.test %>% filter(grepl("GLO", group)) -> stats
-# p1 + stat_pvalue_manual(stats, label = "p.adj.signif",
-#                         remove.bracket = F, y.position = c(15)) -> p1
+
+# stat.test %>% filter(grepl("GLO", group)) -> stats
+
+#p1 + stat_pvalue_manual(stats, label = "p.adj.signif", remove.bracket = F, y.position = c(15)) -> p1
 # p1  + theme(axis.title.y=element_blank(),
 #              axis.text.y=element_blank(),
 #              axis.ticks.y=element_blank(),
 #             axis.line.y = element_blank()) -> p1
 
-p1 + scale_x_discrete(labels= c("GLA", "GLB")) -> p1
+# p1 + scale_x_discrete(labels= c("GLA", "GLB")) -> p1
 # 
 p + scale_x_discrete(labels=rep(paste0("Replicate ", 1:3), 3)) -> p
 
 library(patchwork)
 p + p1 + plot_layout(widths = c(4, 1.2), heights = c(4, 1)) -> p2
+p2 + labs(caption = "For replicates a Mann-Whitney U test was evaluated (confidence = 0.95)") -> p2
 
-ggsave(p2, filename = "boxplot_replicates_samples.png", path = path, 
+ggsave(p2, filename = "boxplot_replicates_samples_Mann-Whitney.png", path = path, 
        width = 8, height = 6)
   # limma::normalizeQuantiles()
 
