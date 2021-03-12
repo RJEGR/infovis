@@ -48,7 +48,10 @@ readGenes <- function(file) {
   
   df %>% mutate(group = group) %>% separate(col = group, into = c("Tissue", "Intercept"), sep = "vs") %>%
     mutate(Develope = substr(Tissue, nchar(Tissue)-2, nchar(Tissue))) %>% 
-    mutate(Tissue = substr(Tissue, 1, nchar(Tissue)-3))
+    mutate(Tissue = substr(Tissue, 1, nchar(Tissue)-3)) %>%
+    mutate(Tissue = recode(Tissue, Glandula_optica = "Optic\nGland",
+                           Glandula_oviducal = "Oviducal\nGland", 
+                           Lobulo_Optico = "Optic\nLobe"))
 
 }
 
@@ -57,9 +60,9 @@ readGenes <- function(file) {
 # 1)
 lapply(overlapsf, readGenes) %>% do.call(rbind, .) %>% as_tibble() -> dff
 
-dff %>% group_by(Tissue, Intercept, Develope) %>% summarise(n = length(ID))
+# saveRDS(dff, file = paste0(path, 'upgenes.rds'))
 
-names_from <-  c("Tissue", "Intercept", "Develope")
+dff %>% group_by(Tissue, Intercept, Develope) %>% summarise(n = length(ID))
 
 library(UpSetR)
 
@@ -127,6 +130,58 @@ count0 %>%
 
 ggsave(p2, filename = "ecdf_degs.png", path = path, width = 7, height = 7)
 
+#
+
+# heatmap of degs
+
+degs <- unique(dff$ID)
+# 
+sum(rownames(count0) %in% degs) / length(degs)
+# 
+colNames <- names(count0)
+
+count0 %>%
+  as_tibble(rownames = "gene") %>%
+  pivot_longer(all_of(colNames), names_to = "group", values_to = "value") %>%
+  left_join(mtd, by = "group") -> count_longer
+
+count_longer %>%
+  filter(gene %in% degs) %>%
+  select(gene, id, value) %>%
+  mutate(value =  ifelse(value < 1, 0, value)) %>%
+  pivot_wider(names_from = id, values_from = value, values_fill = NA) %>%
+  mutate_if(is.double, function(x) log2(x+1)) %>%
+  data.frame(row.names = 'gene') -> df
+
+hclust <- hclust(dist(df), "complete")
+
+
+count_longer %>%
+  filter(gene %in% degs) %>%
+  mutate(value =  ifelse(value < 1, NA, value)) %>%
+  mutate(stage = factor(stage, levels = c("PRE", "Spawing", "POST"))) %>%
+  mutate(group = forcats::fct_reorder(group, as.numeric(stage))) %>%
+  ggplot(aes(y = gene, x = group, fill = log2(value+1))) +
+  geom_tile(width = 1.5) +
+  ggh4x::facet_nested(~ Tissue+stage, scales = "free", space = "free", nest_line = T) +
+  scale_fill_viridis_c(name = expression(~Log[2]~("x"~+1)), na.value = "white") +
+  labs(x = "", y = "Neuropeptide (blastp)") +
+  theme_classic(base_family = "GillSans", base_size = 16) +
+  theme(panel.spacing = unit(0, "lines"),
+        axis.title.y = element_blank(), axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(), axis.line.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 12),
+        strip.background=element_rect(fill=NA, color=NA)) +
+  guides(fill = guide_colorbar(barheight = unit(4, "in"), 
+                               barwidth = unit(0.3, "in"),
+                               ticks.colour = "black", 
+                               frame.colour = "black",
+                               label.theme = element_text(size = 12))) -> pheat
+
+pheat + ggh4x::scale_y_dendrogram(hclust = hclust) -> pheat
+
+ggsave(pheat, filename = paste0(path, "heatmap_degs.png"), width = 10, height = 10)
+
 # 2) run net by file
 # 1) choosing neuropeptide as overlap list of genes (peptideGenes)
 # 2) subseting data count by degs
@@ -149,6 +204,9 @@ write(peptideGenes, file = paste0(path, "peptideGenes.list"))
 dim(df <- dff %>%  filter(FDR < 0.01 & Tissue %in% "Glandula_optica")) # table(dff$Tissue)
 
 length(degs <- unique(df$ID))
+
+# writeLines(degs, paste0(path, "/degs.lists"))
+
 
 sum(degs %in% peptideGenes)
 Overlap <- degs[degs %in% peptideGenes]
