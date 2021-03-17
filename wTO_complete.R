@@ -6,6 +6,24 @@ rm(list = ls())
 args = commandArgs(trailingOnly=TRUE)
 
 options(stringsAsFactors = FALSE)
+
+# paralellize
+
+require(parallel)
+require(doParallel)
+
+cores <- makeCluster(detectCores()-2, type='PSOCK')
+
+print(cores)
+
+registerDoParallel(cores)
+
+Sys.setenv("MC_CORES" = length(cores))
+options("mc.cores"=length(cores))
+
+stopCluster(cores)
+
+
 # ==============
 ## Checking and Load packages ----
 # ==============
@@ -15,7 +33,11 @@ options(stringsAsFactors = FALSE)
 .inst <- .cran_packages %in% installed.packages()
 if(any(!.inst)) {
   install.packages(.cran_packages[!.inst], dep=TRUE, repos='http://cran.us.r-project.org')
-}
+} 
+  
+# Load packages into session, and print package version
+sapply(c(.cran_packages), require, character.only = TRUE)
+
 
 degsf <- args[1]
 cuttof <-  0.05 # args[2]

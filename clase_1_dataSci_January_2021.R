@@ -10,7 +10,7 @@ rm(list = ls())
 # Set path and files ----
 # # # # # #
 
-dir <- '~/Downloads/archivosarticulosloberas/'
+dir <- '~/Documents/archivosarticulosloberas/'
 files <- list.files(path = dir, pattern = ".csv", full.names = T)
 
 # files es un ejemplo de un vector de tipo caracteres typeof(files)
@@ -111,7 +111,7 @@ ranks <- c('Kingdom', 'Phylum', 'Class', 'Order', 'Family')
 
 obj_longer %>% 
   separate(col = linaje, into = ranks, sep = '[.]') %>% 
-  mutate_at(ranks, funs(str_replace_all(., c("^D_[0-9]__"=""))))  -> obj_longer
+  mutate_at(ranks[-1], funs(str_replace_all(., c("^D_[0-9]__"=""))))  -> obj_longer
 
 obj_longer %>%
   separate(col = Replicate, into = c('Sample','Rep'), sep = '_') -> obj_longer
@@ -121,7 +121,7 @@ obj_longer %>% tibble::glimpse()
 # dataVis
 
 obj_longer %>%
-  ggplot(aes(x = Sampling_Are, y = ab, fill = Phylum)) +
+  ggplot(aes(x = Sampling_Area, y = ab, fill = Phylum)) +
   coord_flip() +
   geom_bar(stat = "identity", 
            position = "stack", color = "black")
@@ -163,6 +163,8 @@ obj_longer %>%
 
 my_tidy_function <- function(file) {
   
+  raT <- function(x) {(x / sum (x) ) * 100}
+  
   obj <- read.csv(file)
   
   colNames <- obj %>% select_at(vars(contains("D_0"))) %>% names()
@@ -173,6 +175,7 @@ my_tidy_function <- function(file) {
     mutate(fileName = basename(file)) %>%
     select(fileName, Replicate, index, linaje, ab) %>%
     mutate(fileName = str_replace_all(fileName, "_level-5.csv", ""))
+    # mutate(RA = raT(ab))
   
   
   
@@ -191,12 +194,10 @@ obj_longer %>%
   mutate(Amplicon = str_replace_all(fileName, "_level-5.csv", "")) -> obj_longer
 
 obj_longer %>% tibble::glimpse()
-
-
 obj_longer %>% View()
 
 obj_longer %>%
-  ggplot(aes(x = Sample, y = RA, fill = Phylum)) +
+  ggplot(aes(x = Sample, y = ab, fill = Phylum)) +
   coord_flip() + labs(x = 'Amplicon', y = 'Rel. Ab (%)') +
   geom_bar(stat = "identity", 
            position = "stack", color = "black") +

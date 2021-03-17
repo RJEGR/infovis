@@ -68,6 +68,7 @@ count_longer %>%
   # mutate(x = log2(x +1)) %>%
   is_parametric() %>% arrange(desc(outliers))
 
+# apply(head(count, n=5000),2,shapiro_test)
 
 qqfun <- function(x) {
   x <- x[x > 0]
@@ -82,25 +83,29 @@ zfun <- function(x) {
   return(z)
 }
 
-xx <- log2(count$GLA_H_PR_AD_24_P+1)
+xx <- log2(count$GLO_H_DE_AD_24+1)
 qqfun(xx) %>% rstatix::cor_test(x, y)
 plot(zfun(xx), qqfun(xx)$y)
 
 count_longer %>%
-  filter(value > 0) %>%
+  # filter(value > 0) %>%
   group_by(id) %>%
-  mutate(x = log2(value +1)) %>% # 
+  mutate(x = value) %>% # log2(value +1)
   summarise(qqfun(x)) %>%
   mutate(z = zfun(y)) %>%
-  mutate(outlier = ifelse(abs(z)>3, TRUE, FALSE)) %>%
-  left_join(mtd) %>%
+  mutate(outlier = ifelse(abs(z)>3, TRUE, FALSE)) -> outliersdf
+
+saveRDS(outliersdf, file = paste0(path, 'outliersdf.rds'))
+
+outliersdf %>%
+  # left_join(mtd) %>%
   # rstatix::cor_test(x, y) %>%
   # filter(id %in% unpairedReps[1:2]) %>%
   ggplot(aes(x, y, group = id, shape = outlier)) +
   geom_point(aes(color = z)) +
   scale_shape_manual(name = expression("Outlier-"~sigma), values=c(3,1)) +
   facet_wrap(~id) +
-  stat_cor(aes(group = id), method = "pearson", cor.coef.name = "R", p.accuracy = 0.001,
+  ggpubr::stat_cor(aes(group = id), method = "pearson", cor.coef.name = "R", p.accuracy = 0.001,
            label.y = 18) +
   theme_classic(base_family = "GillSans", base_size = 14) +
   labs(x = "Expected", y = expression("Observed-"~Log[2]~(x~+1)),
@@ -227,39 +232,65 @@ file_out <- "counts_table_length_ajus_gen_level-aproach2-filtered_mean_reps.txt"
 write.table(count, file = paste0(path, '/',file_out), sep = "\t", quote = F)
 
 # PCA ----
-PCA <- prcomp(t(log2(count+1)), scale. = FALSE)
+count <- read.delim(paste0(path, '/',file_out))
+countData <- round(count)
+
+colData <- mtd %>% distinct(group, .keep_all = T)
+
+library(DESeq2)
+
+ddsFullCountTable <- DESeqDataSetFromMatrix(
+  countData = countData,
+  colData = colData, 
+  design = ~ 1 ) # if not rep use design = ~ 1
+
+dds <- estimateSizeFactors(ddsFullCountTable)
+vsd <- varianceStabilizingTransformation(dds)
+
+
+# plotPCA(vsd, intgroup='Tissue')
+vdsdf <- assay(vsd)
+
+file_out <- "counts_table_length_ajus_gen_level-aproach2-filtered_mean_reps_vst.txt"
+write.table(vdsdf, file = paste0(path, '/',file_out), sep = "\t", quote = F)
+
+
+PCA <- prcomp(t(vdsdf), scale. = FALSE) # log2(count+1))
 percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
 sd_ratio <- sqrt(percentVar[2] / percentVar[1])
 
 dtvis <- data.frame(PC1 = PCA$x[,1], 
                     PC2 = PCA$x[,2],
                     mtd %>% distinct(group, .keep_all = T))
+                    
 
 dtvis %>%
   mutate(Tissue = ifelse(Tissue %in% c("GLA","GLB"), "GLO", Tissue)) %>%
+  mutate(stage = factor(stage, levels = c("PRE", "Spawing", "POST"))) %>%
   # mutate(group = ifelse(SampleType != "P", group, "Pool")) %>%
   ggplot(., aes(PC1, PC2)) +
-  # geom_point(aes(color = Tissue), size = 5, alpha = 0.9) +
+  # geom_point(aes(color = Tissue, shape = stage), size = 5, alpha = 0.9) +
   geom_abline(slope = 0, intercept = 0, linetype="dashed", alpha=0.5) +
   geom_vline(xintercept = 0, linetype="dashed", alpha=0.5) +
-  geom_label(aes(label = x, fill = Tissue), alpha = 0.9) +
-  labs(caption = '') +
+  geom_label(aes(label = stage, fill = Tissue), alpha = 0.9) +
+  labs(caption = 'Applying a variance stabilizing transformation (VST)\nto the count data from the fitted dispersion-mean;\nthen the data count is transformed (normalized by division by the size factors') +
   xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
   ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
-  theme(plot.title = element_text(hjust = 0.5))+
+  theme_bw(base_family = "GillSans", base_size = 16) +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = 'top')+
   coord_fixed(ratio = sd_ratio) +
   ggforce::geom_mark_ellipse(aes(label = Tissue, group = Tissue, fill = Tissue)) +
   scale_color_brewer(palette = "Set1") +
   scale_fill_brewer(palette = "Set1") +
-  guides(color = FALSE, fill = FALSE) +
-  theme_bw(base_family = "GillSans", base_size = 16) -> p1
+  guides(color = FALSE, fill = FALSE) -> p1
 
 factoextra::fviz_eig(PCA, choice = "variance", ncp = 5, geom = "line", addlabels = T, main = "") + theme_bw(base_family = "GillSans", base_size = 18) -> p2
 
-
-ggsave(p1, filename = "PCA_mean_rep.png", path = path, 
+filename1 <- "PCA_mean_rep.png" # "PCA.png" # 
+filename2 <- "PCA_mean_rep_eig.png" #"PCA_eig.png" # 
+ggsave(p1, filename = filename1, path = path, 
        width = 8, height = 8)
-ggsave(p2, filename = "PCA_mean_rep_eig.png", path = path, 
+ggsave(p2, filename = filename2, path = path, 
        width = 6, height = 6)
 # library(patchwork)
 # p1 + inset_element(p2, left = 0, bottom = 0.6, right = 0.4, top = 1)
@@ -273,9 +304,10 @@ count0 <- read.delim(countf, row.names = 1)
 
 dim(count0 <- count0[rownames(count0) %in% rownames(count),]) # select genes filtered
 dim(count0 <- count0[, names(count0) %in% colNames]) # select samples filtered
+count0 <- vdsdf
 
-identical(dim(count0), dim(count))
-identical(names(count0), names(count))
+identical(dim(count0), dim(count)) # vdsdf
+identical(colnames(count0), names(count)) # vdsdf
 # PCA0 <- prcomp(t(log2(count0+1)), scale. = FALSE)
 # 
 # PCA0$x %>% as_tibble(rownames = "id") %>% pivot_longer(-id) %>% mutate(group = "RSEM_gene") -> df1
@@ -286,9 +318,10 @@ identical(names(count0), names(count))
 #   group_by(id) %>%
 #   summarise(cor(RSEM_gene, length_ajus_gen))
 
+colNames <- colnames(count)
 
-count %>% as_tibble(rownames = "gene") %>% pivot_longer(colNames) %>% mutate(method = "length_ajus_gen") -> df2 
-count0 %>% as_tibble(rownames = "gene") %>% pivot_longer(colNames) %>% mutate(method = "RSEM_gene") -> df1
+count %>% as_tibble(rownames = "gene") %>% pivot_longer(colNames) %>% mutate(method = "raw") -> df2 
+count0 %>% as_tibble(rownames = "gene") %>% pivot_longer(colNames) %>% mutate(method = "vds") -> df1
 
 
 rbind(df1, df2) %>%
@@ -296,18 +329,20 @@ rbind(df1, df2) %>%
   mutate(Tissue = substr(name, 1, 3)) -> df
 
 df %>% 
-  mutate(value = log10(value + 1)) %>%
+  # mutate(value = log10(value + 1)) %>%
   pivot_wider(names_from = method, values_from = value) %>%
   # sample_n(1000) %>%
+  mutate(raw = log2(raw + 1)) %>%
   group_by(name) %>%
-  mutate(cor = cor(RSEM_gene, length_ajus_gen)) %>%
+  mutate(cor = cor(vds, raw)) %>%
   arrange(desc(cor)) %>%
   ungroup() %>%
   mutate(name = forcats::fct_reorder(name, cor, .desc = T)) %>%
-  ggplot() +
-  geom_point(aes(RSEM_gene, length_ajus_gen , color = cor), alpha = 0.8) +
-  geom_abline(color = "black", slope = 1, linetype="dashed", alpha=0.5) +
-  labs(caption = expression(~Log[10]~("x"~+1))) +
+  ggplot(aes(x = vds, y = raw )) +
+  geom_point(aes(color = cor), alpha = 0.8) +
+  geom_smooth(method = "lm", linetype="dashed", size = 0.5, alpha=0.5, 
+              se = TRUE, na.rm = TRUE) +
+  labs(y = expression(~Log[2]~("x"~+1)), caption = 'Comparing log2(x) vs log2(vds) - variance stabilizing transformation') +
   scale_color_viridis_c(name = "Correlation\n(Pearson)") +
   facet_wrap(~name) +
   theme_classic(base_family = "GillSans", base_size = 16) +
