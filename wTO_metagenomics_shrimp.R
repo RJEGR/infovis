@@ -79,7 +79,7 @@ wTO_Foregut <- phyloseq %>% subset_samples(Tissue == 'Foregut') %>%from_pyseq_to
 
 summary(wTO_Hindgut$pval.adj);summary(wTO_Midgut$pval.adj);summary(wTO_Foregut$pval.adj)
 
-sum(wTO_Hindgut$pval.adj < 0.05);sum(wTO_Midgut$pval.adj < 0.05);sum(wTO_Foregut$pval.adj < 0.05)
+sum(wTO_Hindgut$pval.adj < 0.01);sum(wTO_Midgut$pval.adj < 0.01);sum(wTO_Foregut$pval.adj < 0.01)
 
 # We found that x out of y taxa had at least one significant interaction (padj-value <0.01)
 
@@ -99,14 +99,35 @@ rbind(mutate(wTO_Hindgut, group = 'Hindgut'),
 # how to interpretate: The nodes within x cluster contains only negative interactions (green links), suggesting that the bacterial species in this cluster do not co-exist. We also notice, that many of the bacteria belonging to the same level_taxa are well connected by purple links, indicating that they co-exist and share interactions. However, the number of interactions among non-related bacteria demonstrate that interactions are not intra-level_taxa specific. Positive correlations in co-occurence networks may represent symbiotic or commensal relationships, while negative correlations may represent predator-prey interactions, allelopathy or competition for limited resources
 
 wTOcutoff <- function(wTO_out, cutoff = 0.01) {
+  
+  
   wTO_out %>% mutate_if(is.factor, as.character) %>%
     mutate(wTO = ifelse(pval.adj-abs(wTO) < cutoff, wTO, 0 )) %>%
     filter(wTO != 0 ) %>%
-    as.data.frame()
+    as.data.frame() -> out
+  
+ cat("Number of significant nodes interacting: ", length(unique(c(out$Node.1, out$Node.2))))
+  
+  return(out)
+  
 }
 wTO_Hindgut %>% wTOcutoff() -> HindgutN
 wTO_Midgut %>% wTOcutoff()  -> MidgutN
 wTO_Foregut %>% wTOcutoff() -> ForegutN
+
+sum(HindgutN$pval.adj < 0.01);sum(MidgutN$pval.adj < 0.01);sum(ForegutN$pval.adj < 0.01)
+
+length(unique(c(HindgutN$Node.1, HindgutN$Node.2)))
+length(unique(c(HindgutN$Node.1, HindgutN$Node.2)))
+length(unique(c(HindgutN$Node.1, HindgutN$Node.2)))
+
+rbind(mutate(HindgutN, group = 'Hindgut'),
+      mutate(MidgutN, group = 'Midgut'),
+      mutate(ForegutN, group = 'Foregut')) %>%
+  ggplot(aes(color = pval.adj)) +
+  geom_point(aes(pval.adj-wTO, wTO)) +
+  ggsci::scale_color_gsea() +
+  facet_grid(~group)
 
 plotNet <- function(WTO, tau = 0.5) {
   
@@ -182,7 +203,7 @@ aesthNet <- function(wTO, tau = 0.3) {
   
 }
 
-df %>% pull(Phylum) %>% sort() %>% unique() -> labels 
+phyloseq %>% tax_table() %>% as.data.frame() %>% pull(Phylum) %>% sort() %>% unique() -> labels 
 
 colourCount = length(labels)
 
@@ -196,15 +217,18 @@ if(colourCount > 7) {
 names(getPalette) <- labels
 
 p1 <- aesthNet(HindgutN, tau = 0.3) + geom_node_point(aes(color = Phylum)) + 
-  guides(col = guide_legend(nrow = 3))
-p2 <- aesthNet(ForegutN, tau = 0.3) + geom_node_point(aes(color = Phylum))
-p3 <- aesthNet(MidgutN, tau = 0) + geom_node_point(aes(color = Phylum))
+  guides(col = guide_legend(nrow = 3)) + scale_color_manual(values = getPalette)
+p2 <- aesthNet(ForegutN, tau = 0.3) + geom_node_point(aes(color = Phylum)) + 
+  guides(col = guide_legend(nrow = 3)) + scale_color_manual(values = getPalette)
+p3 <- aesthNet(MidgutN, tau = 0) + geom_node_point(aes(color = Phylum)) + 
+  scale_color_manual(values = getPalette)
 
 ggsave(p1, filename = "HindgutWTO.png", path = dir, width = 12, height = 8)
-ggsave(p2, filename = "ForegutWTO.png", path = dir, width = 8, height = 8)
-ggsave(p3, filename = "MidgutWTO.png", path = dir, width = 8, height = 8)
+ggsave(p2, filename = "ForegutWTO.png", path = dir, width = 12, height = 8)
+ggsave(p3, filename = "MidgutWTO.png", path = dir, width = 12, height = 8)
 
-
+# library(patchwork)
+# p1+p2
 # if differential net ----
 
 
