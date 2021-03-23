@@ -103,7 +103,7 @@ df %>%
   ggplot(aes(TotalAbundance)) + geom_histogram() + 
   facet_wrap(~ Prevalence, scales = 'free_y') -> p1
 
-dat_text <- df %>%  group_by(Prevalence) %>% tally() %>% 
+dat_text <- df %>%  filter(id %in% degs) %>% group_by(Prevalence) %>% tally() %>% 
   mutate(cumsum = cumsum(n), Prevalence = paste0(1:9, ' Samples'))
 
 p1 + geom_text(
@@ -120,10 +120,9 @@ ggsave(p1, filename = "Prevalence.png", path = path,
 df %>% 
   filter(id %in% degs) %>% 
   # filter(Prevalence == 1) %>%
-  left_join(dff, by = c('id'='ID')) %>% # joint to degs
+  left_join(dff, by = c('id'='ID')) %>%
   ggplot(aes(logFC, PValue, 
-             # size = log10(TotalAbundance),
-             color = Tissue)) + 
+             color = Tissue, size = log2(TotalAbundance+1))) + 
   geom_point(alpha = 0.5) +
   facet_wrap(~as.character(Prevalence))
 

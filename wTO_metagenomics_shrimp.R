@@ -6,6 +6,12 @@ library(microbiome)
 
 library(tidyverse)
 
+library(ggraph)
+library(igraph)
+library(ggforce)
+library(scatterpie)
+library(RColorBrewer)
+
 dir <- '~/Documents/Shrimp_Estefany/'
 
 ancom_res <- read_tsv(paste0(dir, "ANCOMBC_res.tsv"))
@@ -13,8 +19,8 @@ ancom_res <- read_tsv(paste0(dir, "ANCOMBC_res.tsv"))
 # load(paste0(dir, "euler_outputs.RData"))
 load(paste0(dir, "objects.RData"))
 
+# obj %>% select_at(ranks[2:5]) %>% distinct(Family, .keep_all = T) -> tax
 
-tax %>% select_at(ranks[2:5]) %>% distinct(Family, .keep_all = T)
 
 phyloseq <- readRDS(paste0(dir, 'phyloseq_ancom.rds'))
 phyloseq <- phyloseq %>% subset_taxa(Phylum %in% keepPhyla) %>% 
@@ -25,7 +31,7 @@ phyloseq %>% tax_table %>% as.data.frame() %>% distinct(unique, .keep_all = T) -
 # trabjar a nivel familia, es 'particionar' los taxones en nodos que , separados, no son significativamente estadisticos, la prueba wTO no es tan potente para clasificar esta red. Por lo que conviene trabajar a un nivel mas alto como lo es el filo o quiza el Order (aunque mas complicado de describir)
 
 datax <- unique(ancom_res$taxon_id)
-phyloseq %>% subset_taxa(Family %in% taxon_g$Hindgut) %>% subset_samples(Tissue == 'Hindgut') %>% prune_taxa(taxa_sums(.) > 0, .) %>% aggregate_taxa(., "Phylum")
+# phyloseq %>% subset_taxa(Family %in% taxon_g$Hindgut) %>% subset_samples(Tissue == 'Hindgut') %>% prune_taxa(taxa_sums(.) > 0, .) %>% aggregate_taxa(., "Phylum")
 
 
   # subset_taxa(Family %in% keepPhyla) %>%
@@ -74,8 +80,15 @@ overlaps <- overlaps[!is.na(overlaps)]
 table(sample_data(phyloseq)$Tissue)
 
 wTO_Hindgut <- phyloseq %>% subset_samples(Tissue == 'Hindgut') %>% from_pyseq_to_wTO(.)
-wTO_Midgut <- phyloseq %>% subset_samples(Tissue == 'Midgut') %>% from_pyseq_to_wTO(.)
 wTO_Foregut <- phyloseq %>% subset_samples(Tissue == 'Foregut') %>%from_pyseq_to_wTO(.)
+wTO_Midgut <- phyloseq %>% subset_samples(Tissue == 'Midgut') %>% from_pyseq_to_wTO(.)
+
+DiffNet <- MakeDiffNet(Data = list(wTO_Hindgut, wTO_Foregut, wTO_Midgut),
+                       Code = c('Hindgut', 'Foregut', 'Midgut'))
+
+# due to poor covariates in midgut, lets use complete 
+
+wTO_all_sam <- phyloseq %>% from_pyseq_to_wTO(.)
 
 summary(wTO_Hindgut$pval.adj);summary(wTO_Midgut$pval.adj);summary(wTO_Foregut$pval.adj)
 
@@ -83,7 +96,8 @@ sum(wTO_Hindgut$pval.adj < 0.01);sum(wTO_Midgut$pval.adj < 0.01);sum(wTO_Foregut
 
 # We found that x out of y taxa had at least one significant interaction (padj-value <0.01)
 
-rbind(mutate(wTO_Hindgut, group = 'Hindgut'),
+rbind(mutate(wTO_all_sam, group = 'All'),
+      mutate(wTO_Hindgut, group = 'Hindgut'),
       mutate(wTO_Midgut, group = 'Midgut'),
       mutate(wTO_Foregut, group = 'Foregut')) %>%
   # ggplot(aes(pval.adj, fill = group)) + geom_histogram(bins = 60) + geom_vline(xintercept = 0.05)
@@ -112,14 +126,15 @@ wTOcutoff <- function(wTO_out, cutoff = 0.01) {
   
 }
 wTO_Hindgut %>% wTOcutoff() -> HindgutN
-wTO_Midgut %>% wTOcutoff()  -> MidgutN
+wTO_Midgut %>% wTOcutoff(cutoff = 0.1)  -> MidgutN
 wTO_Foregut %>% wTOcutoff() -> ForegutN
+wTO_all_sam %>% wTOcutoff() -> allSamN
+
+DiffNet <- MakeDiffNet(Data = list(HindgutN, ForegutN, wTO_Midgut),
+                       Code = c('Hindgut', 'Foregut', 'Midgut'))
 
 sum(HindgutN$pval.adj < 0.01);sum(MidgutN$pval.adj < 0.01);sum(ForegutN$pval.adj < 0.01)
 
-length(unique(c(HindgutN$Node.1, HindgutN$Node.2)))
-length(unique(c(HindgutN$Node.1, HindgutN$Node.2)))
-length(unique(c(HindgutN$Node.1, HindgutN$Node.2)))
 
 rbind(mutate(HindgutN, group = 'Hindgut'),
       mutate(MidgutN, group = 'Midgut'),
@@ -165,6 +180,7 @@ aesthNet <- function(wTO, tau = 0.3) {
   Edges <- wTO %>% filter(abs(wTO) > tau) %>% 
     mutate(wTOc = ifelse(wTO > 0, '+', '-'), 
            width = 0.5 + 5 * abs((wTO - min(wTO))/(max(wTO) -  min(wTO))))
+  
   graph = graph_from_data_frame(Edges, directed = FALSE, Nodes)
   layout = create_layout(graph, layout = 'igraph', algorithm = 'kk')
   
@@ -231,55 +247,106 @@ ggsave(p3, filename = "MidgutWTO.png", path = dir, width = 12, height = 8)
 # p1+p2
 # if differential net ----
 
+# nota: en comparacion del metodo de separar tejidos, este metodo (makkediffNet, no es tan efectivo)
 
-DiffNet <- MakeDiffNet(Data = list(HindgutN, MidgutN,ForegutN),
-                       Code = c('Hindgut','Midgut', 'Foregut'))
 
-CoDiNA::plot.CoDiNA(DiffNet, Cluster = TRUE, sort.by.Phi = TRUE)
+DiffNet <- MakeDiffNet(Data = list(wTO_Hindgut, wTO_Foregut, wTO_Midgut),
+                       Code = c('Hindgut', 'Foregut', 'Midgut'))
+
+
+# CoDiNA::plot.CoDiNA(DiffNet, Cluster = TRUE, sort.by.Phi = TRUE)
 
 # continue w/ https://deisygysi.github.io/rpackages/Pack-2
 
 # Clustering the nodes into Φ and Φ̃ categories
 # based on median
 
-int_C = quantile(DiffNet$Score_internal, 0.3)
-ext_C = quantile(DiffNet$Score_Phi, 0.3)
+int_C = quantile(DiffNet$Score_internal, 0.3) # the closer to zero, the better.
+ext_C = quantile(DiffNet$Score_Phi, 0.75) # the closer to 1, the better.
 
 Nodes_Groups = ClusterNodes(DiffNet = DiffNet, 
                             cutoff.external = ext_C, 
                             cutoff.internal = int_C)
 table(Nodes_Groups$Phi_tilde)
 
-Graph = plot(DiffNet, cutoff.external = ext_C, cutoff.internal = int_C, layout = 'layout_components')
+Graph = CoDiNA::plot.CoDiNA(DiffNet, cutoff.external = ext_C, cutoff.internal = int_C, 
+                            layout = 'layout_components', Cluster = TRUE)
 
-g = CoDiNA::as.igraph(Graph) 
-
-library(igraph)
-library(RColorBrewer)
-vgroup <- as.factor(Graph$Nodes$Phi_tilde)
-color_pal <- brewer.pal(4, "Set1")
-vertex.color <- color_pal[as.numeric(vgroup)]
-names(vertex.color) <- Graph$Nodes$Phi_tilde
-
-plot(g, layout = layout.fruchterman.reingold(g), vertex.color=vertex.color)
-legend("bottomleft", legend= levels(vgroup)  , 
-       col = color_pal , bty = "n", pch=20 , pt.cex = 3, cex = 1.5, text.col= color_pal , horiz = FALSE, inset = c(0.1, 0.1))
 
 library(ggraph)
 
-g = graph_from_data_frame(Graph$Edges, directed = FALSE, Graph$Nodes)
-layout = create_layout(g, layout = 'igraph', algorithm = 'nicely')
+Edges <- Graph$Edges
+Nodes <- Graph$Nodes
+
+Edges %>% mutate_at('Group', funs(str_replace_all(., c("^[a-z][.]"="")))) -> Edges
+Nodes %>% left_join(tax, by = c('id' = 'unique')) -> Nodes
+
+graph <- graph_from_data_frame(Edges, directed = FALSE, Nodes)
+
+group <- igraph::cluster_louvain(graph)$membership
+
+nodes = plyr::join(Nodes, data.frame(id = igraph::V(graph)$name, 
+                                     group = group))
+
+# Edges %>% select(id1, id2, Group) %>% pivot_longer(cols = c(id1, id2), values_to = 'id') %>% 
+  distinct(id, Group) -> facet_nodes
+# facet_nodes <- data.frame(id = c(Edges$id1, Edges$id2), Group = c(Edges$Group))
+
+
+graph = graph_from_data_frame(Edges, directed = FALSE, nodes)
+
+
+# V(graph)$facet_node <- facet_nodes[match(V(graph)$name, facet_nodes$id), 'Group']
+
+layout = create_layout(graph, layout = 'igraph', algorithm = 'kk')
+
+# test aesthetics https://www.r-bloggers.com/2020/03/ggraph-tricks-for-common-problems/
 
 ggraph(layout) + 
-  # geom_edge_density(aes(fill = Score)) +
-  geom_edge_link(alpha = 0.25, edge_colour = "grey") +  # aes(alpha = Score)
-  geom_node_point(aes(size = Degree_Total, alpha = Degree_Total, color = Phi_tilde)) +
-  geom_node_text(aes(label = name)) +
-  scale_color_manual(values = color_pal) -> graphSave
-  # facet_edges(~Group)
-  # facet_nodes(~ Phi)
-ggsave(graphSave, filename = "codina.png", path = dir, 
-       width = 8, height = 8)
+  geom_edge_link(aes(edge_colour = Phi, edge_alpha = Score), width = 1.2,
+                 arrow = arrow(
+                   angle = 10,
+                   length = unit(0.1, "inches"),
+                   ends = "last",
+                   type = "closed"
+                 )) +  # aes(alpha = Score)
+  geom_node_point(aes(size = Degree_Total * 2 + 1)) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  geom_mark_hull(
+    aes(x, y, group = group, label=group),
+    fill = "grey", color = NA,
+    concavity = 4,
+    con.size = 0.3,
+    con.linetype = 2,
+    expand = unit(2, "mm"),
+    alpha = 0.25) +
+  theme_void() + 
+  theme(legend.position="top") +
+  geom_node_point(aes(color = Phylum)) + 
+  scale_color_manual(values = getPalette) -> graphSave
+
+
+ggraph(layout) + 
+  geom_edge_link(aes(edge_colour = Group, edge_alpha = Score)) +
+  facet_edges(~Phi, scales = "free") +
+  # facet_graph(Phi~Group)
+  geom_node_point(aes(size = Degree_Total)) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void() -> graphSave
+
+graphSave + geom_mark_hull(
+  aes(x, y, group = group, label=group),
+  fill = "grey", color = NA,
+  concavity = 4,
+  con.size = 0.3,
+  con.linetype = 2,
+  expand = unit(2, "mm"),
+  alpha = 0.25)
+
+ggsave(graphSave, filename = "codina_facet.png", path = dir, 
+       width = 18, height = 8)
+
+
 
 # or chord
 
@@ -323,3 +390,100 @@ df %>%
                link.arr.length = 0.2,
                preAllocateTracks = 1,
                small.gap = 10, big.gap = 15)
+
+
+# full network ----
+
+phyloseq <- readRDS(paste0(dir, 'phyloseq_ancom.rds'))
+phyloseq %>% subset_taxa(Phylum %in% keepPhyla) %>% prune_taxa(taxa_sums(.) > 0, .) %>% aggregate_taxa(., "Order")
+
+# phyloseq %>% subset_taxa(Family %in% datax) %>% aggregate_taxa(., "Family") %>% from_pyseq_to_wTO(.) -> wTO
+
+# wTO_all_sam <- phyloseq %>% from_pyseq_to_wTO(.)
+
+summary(wTO_all_sam$pval.adj)
+
+sum(wTO_all_sam$pval.adj < 0.01)
+
+# We found that x out of y taxa had at least one significant interaction (padj-value <0.01)
+
+wTO_all_sam %>%
+  mutate(wTO = ifelse(pval.adj-abs(wTO) < 0.01, wTO, 0 )) %>%
+  ggplot(aes(color = pval.adj)) +
+  geom_point(aes(pval.adj, wTO)) +
+  ggsci::scale_color_gsea()
+
+wTO_all_sam %>% wTOcutoff() -> wTO
+
+
+wTO_all_sam %>%
+  ggplot(aes(color = pval.adj)) +
+  geom_point(aes(pval.adj-wTO, wTO)) +
+  ggsci::scale_color_gsea()
+
+phyloseq %>% tax_table() %>% as.data.frame() %>% pull(Phylum) %>% sort() %>% unique() -> labels 
+
+colourCount = length(labels)
+
+library(ggsci)
+
+if(colourCount > 7) {
+  getPalette <- colorRampPalette(pal_locuszoom()(7))(colourCount)
+} else
+  getPalette <- pal_locuszoom(alpha = 1)(colourCount)  
+
+names(getPalette) <- labels
+
+library(ggraph)
+library(ggforce)
+  
+  
+  g <- plotNet(wTO, tau = tau)
+  
+  g$Nodes %>% left_join(tax, by = c('id' = 'unique')) -> Nodes
+  
+  phyloseq %>% subset_taxa(Order %in% unique(Nodes$id)) %>% psmelt() %>%  
+    group_by(Tissue, OTU) %>% summarise(Abundance = sum(Abundance)) %>%
+    # group_by(OTU) %>% mutate(Abundance = Abundance/sum(Abundance)) %>%
+    pivot_wider(names_from = Tissue, values_from = Abundance) -> scatterNodes
+  
+  scatterNames <- c("Hindgut", "Midgut", "Foregut")
+  left_join(Nodes, scatterNodes, by = c('id' = 'OTU') ) -> Nodes
+  
+  Nodes <- Nodes %>% mutate(size = (degree - min(degree))/(max(degree) - min(degree))) %>%
+    mutate(size = size * 2 + 1)
+  
+  Edges <- wTO %>% filter(abs(wTO) > tau) %>% 
+    mutate(wTOc = ifelse(wTO > 0, '+', '-'), 
+           width = 0.5 + 5 * abs((wTO - min(wTO))/(max(wTO) -  min(wTO))))
+  
+  graph = graph_from_data_frame(Edges, directed = FALSE, Nodes)
+  layout = create_layout(graph, layout = 'igraph', algorithm = 'kk')
+  
+  scatterDat <- as_data_frame(graph, "vertices")
+  
+  V(graph)$x <- layout[, 1]
+  V(graph)$y <- layout[, 2]
+  
+  # test aesthetics https://www.r-bloggers.com/2020/03/ggraph-tricks-for-common-problems/
+  
+  ggraph(graph, "manual", x = V(graph)$x, y = V(graph)$y)  + 
+    geom_edge_link(aes(edge_colour = wTOc, edge_alpha = width), width = 1.2) + 
+    # geom_node_point(aes(size = size)) +
+    geom_scatterpie(
+      cols = scatterNames,
+      data = scatterDat, 
+      colour = NA ) +
+    geom_mark_hull(
+      aes(x, y, group = group, label=group),
+      fill = "grey", color = NA,
+      concavity = 4,
+      con.size = 0.3,
+      con.linetype = 2,
+      expand = unit(2, "mm"),
+      alpha = 0.25) +
+    geom_node_text(aes(label = name), repel = TRUE) +
+    theme_void() + 
+    theme(legend.position="top") -> p
+  
+  ggsave(p, filename = "allSamples_WTO.png", path = dir, width = 8, height = 8)

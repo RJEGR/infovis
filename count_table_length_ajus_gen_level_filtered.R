@@ -220,14 +220,14 @@ ggsave(p2, filename = "boxplot_replicates_samples_Mann-Whitney.png", path = path
 
 count0 %>%
   as_tibble(rownames = "ID") %>%
-  pivot_longer(cols = colNames, names_to = "id") %>%
+  pivot_longer(cols = colnames(count0), names_to = "id") %>%
   left_join(mtd) %>%
   group_by(ID, group) %>%
   summarise(value = mean(value)) %>%
   pivot_wider(names_from = "group", values_from = "value") %>%
   data.frame(row.names = .$ID) %>% select(-ID) -> count
 
-count <- round(count, digits = 3)
+dim(count <- round(count, digits = 3))
 file_out <- "counts_table_length_ajus_gen_level-aproach2-filtered_mean_reps.txt"
 write.table(count, file = paste0(path, '/',file_out), sep = "\t", quote = F)
 

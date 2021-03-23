@@ -14,7 +14,7 @@ dim(count <- read.delim(countf, sep = "\t"))
 sum(rowSums(edgeR::cpm(count)) > 3) / nrow(count)
 dim(count <- count[rowSums(edgeR::cpm(count)) > 3, ])
 
-# outLierdf <- readRDS(paste0(path, 'outliersdf.rds'))
+outLierdf <- readRDS(paste0(path, 'outliersdf.rds'))
 # outLierdf %>% ggplot() + geom_boxplot(aes(x = id, y = y, color = outlier))
 # outLierdf %>% filter(abs(z) < 3) %>% ggplot(aes(y,group = id)) + geom_density()
 
@@ -44,3 +44,7 @@ saveRDS(sft, paste0(path, 'sft.rds'))
 # cat("\nsoftPower value", softPower, '\n')
 
 # run at nigth
+
+# using the iterativeWGCNA
+# /Users/cigom/transcriptomics/oktopus_full_assembly/WGCNA
+# iterativeWGCNA -i counts_table_length_ajus_gen_level-aproach2-filtered_mean_reps_vst_orfs.txt --wgcnaParameters maxBlockSize=5000,corType=bicor,power=12
