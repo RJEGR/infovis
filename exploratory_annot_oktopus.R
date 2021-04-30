@@ -1,5 +1,6 @@
 path <- "~/transcriptomics/oktopus_full_assembly/"
 count0 <- read.delim(paste0(path, 'counts_table_length_ajus_gen_level-aproach2-filtered_mean_reps_vst.txt'), sep = "\t")
+
 dim(count0)
 
 dim(count <- count0[rowSums(count0) > 10, ])
@@ -55,7 +56,8 @@ y <- trinotateR::read_trinotate("~/transcriptomics/oktopus_full_assembly/Trinota
 
 # split_pfamdf <- trinotateR::split_pfam(y)
 blastp <- split_blast(y, "sprot_Top_BLASTP_hit")
-
+go <- split_GO(y)
+go %>% filter(ontology %in% 'biological_process') -> goBP
 
 orfs <- sapply(strsplit(names(dnaset), "::"), `[`, 1)
 orfs <- unique(orfs)
@@ -77,6 +79,8 @@ write.table(count0[rownames(count0) %in% orfs, ], file = paste0(path, '/',file_o
 blastp <- blastp[blastp$gene %in% rownames(count),]
 
 table(blastp$domain)
+
+library(tidyverse)
 
 blastp %>% 
   dplyr::count(domain, genus, sort = TRUE) %>%

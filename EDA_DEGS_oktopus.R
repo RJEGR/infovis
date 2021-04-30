@@ -19,6 +19,9 @@ if(any(!.inst)) {
 #   BiocManager::install(.bioc_packages[!.inst], ask = F)
 # }
 
+
+library(tidyverse)
+
 source("~/Documents/GitHub/Estadistica_UABC/anova_and_gaussianity.R")
 
 # load count data
@@ -34,8 +37,14 @@ mtd <- read.delim(paste0(path, "metadata.tsv"), sep = "\t")
 
 # load up/down regulated overlaps  (lists)
 
-path <- "~/transcriptomics/oktopus_full_assembly/DGE_Pavel_2/"
-pattern <- "just_upgenes.txt_add_annotation.txt.sort"
+# path <- "~/transcriptomics/oktopus_full_assembly/DGE_Pavel_2/updown_degs/"
+
+path <- "~/transcriptomics/oktopus_full_assembly/all_deg_ricardo/"
+
+# pattern <- "txt.sort"
+
+pattern <- ".txt"
+
 overlapsf <- list.files(path = path, pattern = pattern, full.names = T)
 
 readGenes <- function(file) {
@@ -50,7 +59,7 @@ readGenes <- function(file) {
     mutate(Develope = substr(Tissue, nchar(Tissue)-2, nchar(Tissue))) %>% 
     mutate(Tissue = substr(Tissue, 1, nchar(Tissue)-3)) %>%
     mutate(Tissue = recode(Tissue, Glandula_optica = "Optic\nGland",
-                           Glandula_oviducal = "Oviducal\nGland", 
+                           Glandula_oviducal = "Oviducal\nGland",
                            Lobulo_Optico = "Optic\nLobe"))
 
 }
@@ -60,7 +69,67 @@ readGenes <- function(file) {
 # 1)
 lapply(overlapsf, readGenes) %>% do.call(rbind, .) %>% as_tibble() -> dff
 
-# saveRDS(dff, file = paste0(path, 'upgenes.rds'))
+dff %>% 
+  drop_na(Uniprot.ID) %>% 
+  filter(logFC > 0) %>%
+  group_by(Tissue, Intercept, Develope) %>% distinct(ID) %>% count()
+
+# subset data-count to degs
+
+dff %>% distinct(ID) %>% pull(ID) -> degs
+
+dim(saveCount <- count0[rownames(count0) %in% degs, ])
+
+file_out <- "counts_table_length_ajus_gen_level-aproach2-filtered_All_updownGenes.txt"
+write.table(saveCount, file = paste0(path, '/',file_out), sep = "\t", quote = F)
+
+# dim(saveCount[rowSums(edgeR::cpm(saveCount)) > 2, ])
+
+dff %>% distinct(Tissue) %>% pull() -> Tissues
+
+Wsubsetdf <- function(df, group) {
+  
+  stages <- c('PRE', 'DES', 'POS')
+  
+
+  # stage <- stages[1]
+  
+  df %>% filter(Tissue %in% group) -> tbl
+  
+  tbl %>% filter(Develope %in% stages[1]) %>% distinct(ID) %>% pull() -> degIds
+  write(degIds, file = paste0(path, "/", group ,"_",stages[1],"_updown_degs_unique.list"))
+  
+  tbl %>% filter(Develope %in% stages[2]) %>% distinct(ID) %>% pull() -> degIds
+  write(degIds, file = paste0(path, "/", group ,"_",stages[2],"_updown_degs_unique.list"))
+  
+  tbl %>% filter(Develope %in% stages[3]) %>% distinct(ID) %>% pull() -> degIds
+  write(degIds, file = paste0(path, "/", group ,"_",stages[3],"_updown_degs_unique.list"))
+ 
+}
+
+
+# Tissue <- Tissues[1]
+
+Wsubsetdf(dff, Tissues[1])
+Wsubsetdf(dff, Tissues[2])
+Wsubsetdf(dff, Tissues[3])
+
+
+# by stage
+
+dff %>% 
+  group_by(Develope) %>% distinct(ID) %>% count()
+
+# dff %>% filter(Develope %in% 'DES') %>% distinct(ID) %>% pull() -> degIds
+# write(degIds, file = paste0(path, "des_updown_degs_unique.list"))
+# 
+# dff %>% filter(Develope %in% 'POS') %>% distinct(ID) %>% pull() -> degIds
+# write(degIds, file = paste0(path, "pos_updown_degs_unique.list"))
+# 
+# dff %>% filter(Develope %in% 'PRE') %>% distinct(ID) %>% pull() -> degIds
+# write(degIds, file = paste0(path, "pre_updown_degs_unique.list"))
+
+# saveRDS(dff, file = paste0(path, 'updown_degs.rds'))
 
 dff %>% group_by(Tissue, Intercept, Develope) %>% summarise(n = length(ID))
 
@@ -88,7 +157,7 @@ colNames <- names(count)
 #         order.by = "freq")
 
 
-length(unique(dff$ID)) # 3744 DEGs 
+length(unique(dff$ID)) # 3744 up DEGs 
 length(dff$ID) # separated by interects of 6896
 
 dff %>% with(., table(Tissue, Intercept, Develope))
@@ -182,6 +251,74 @@ pheat + ggh4x::scale_y_dendrogram(hclust = hclust) -> pheat
 
 ggsave(pheat, filename = paste0(path, "heatmap_degs.png"), width = 10, height = 10)
 
+
+# from non annotated up/down calculate the proportion of dets
+
+
+legendLabels = c("NS", expression(Log[2] ~ FC), 
+                 "p-value", 
+                 expression(p - value ~ and ~ log[2] ~ FC))
+
+FC_P <- "FC_P"
+P <- "P"
+FC <- "FC"
+
+colors_fc <- c("red2", 
+               "#4169E1",
+               "forestgreen", "grey30")
+
+dff['group'] <-"NS"
+
+logfc <- 2
+FDR <- 0.005
+
+dff[which(dff['FDR'] < FDR & abs(dff['logFC']) < logfc ),'group'] <- P
+dff[which(dff['FDR'] > FDR & abs(dff['logFC']) > logfc ), 'group'] <- FC
+dff[which(dff['FDR'] < FDR & abs(dff['logFC']) > logfc ), 'group'] <- FC_P
+
+dff %>%
+  mutate(Develope = factor(Develope, levels = c("PRE", "DES", "POS"))) %>%
+  mutate(shape = ifelse(is.na(Uniprot.ID), 'NAN', 'AN')) %>%
+  mutate(PValue = -log10(PValue)) %>%
+  ggplot(aes(x = logFC, y = PValue)) +
+  geom_point(aes(color = group), alpha = 3/5) +
+  scale_color_manual(name = "", values = colors_fc,
+                     labels = c(NS = legendLabels[1],
+                                FC = legendLabels[2], 
+                                P = legendLabels[3], 
+                                FC_P = legendLabels[4])) + 
+  labs(x= expression(Log[2] ~ "Fold Change"), 
+       y = expression(-Log[10] ~ "P")) +
+  theme_bw(base_family = "GillSans") +
+  theme(legend.position = "top") +
+  facet_grid(Tissue ~ Develope) -> saveP
+
+dff %>%
+  mutate(Develope = factor(Develope, levels = c("PRE", "DES", "POS"))) %>%
+  mutate(shape = ifelse(is.na(Uniprot.ID), 'NAN', 'AN')) %>%
+  group_by(shape, Tissue) %>% count() %>%
+  ggplot(aes(fill = shape, x = Tissue, y = n, label = n)) +
+  geom_col(position = position_dodge(), color = 'black', size = 1) +
+  # geom_text(position = position_dodge(width = 0.9), vjust = -0.5) +
+  coord_flip() +
+  scale_fill_manual(name = '', values = c("black", "white")) +
+  labs(y = 'Transcripts' ,caption = 'Proportion of Annotated (AN) and Non Annotated (NAN) dets') +
+  theme_classic(base_family = "GillSans") +
+  theme(legend.position = "top",
+        axis.title.y = element_blank(), axis.text.y= element_blank(),
+        axis.ticks.y=element_blank(), axis.line.y = element_blank()) -> rightPlot
+
+library(patchwork)  
+
+psave <- saveP + rightPlot + plot_layout(widths = c(1, 0.5))
+
+path_out <- '~/transcriptomics/oktopus_full_assembly/'
+
+ggsave(psave, filename = 'volcano_annont_proportion.png', path = path_out, width = 8, height = 7)
+
+
+
+
 # 2) run net by file
 # 1) choosing neuropeptide as overlap list of genes (peptideGenes)
 # 2) subseting data count by degs
@@ -243,4 +380,6 @@ wTO$wTO = ifelse(wTO$Padj_sig<0.05, wTO$wTO_sign, 0 )
 # after run wTO_complete.R in all the degs, lets merge it by:
 
 require(CoDiNA)
+
+# 
 

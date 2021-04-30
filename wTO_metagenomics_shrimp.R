@@ -289,7 +289,7 @@ nodes = plyr::join(Nodes, data.frame(id = igraph::V(graph)$name,
                                      group = group))
 
 # Edges %>% select(id1, id2, Group) %>% pivot_longer(cols = c(id1, id2), values_to = 'id') %>% 
-  distinct(id, Group) -> facet_nodes
+  # distinct(id, Group) -> facet_nodes
 # facet_nodes <- data.frame(id = c(Edges$id1, Edges$id2), Group = c(Edges$Group))
 
 
