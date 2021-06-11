@@ -1,12 +1,19 @@
 
 # red de interacion microbioma
 # test https://www.nature.com/articles/s41522-018-0077-y
+# (file:///Users/cigom/Downloads/v48i04.pdf qgraph method used in previous ref)
+# network microbiome review at https://www.sciencedirect.com/science/article/abs/pii/S0966842X16301858
+# The complexity of microbiomes motivates a movement from reductionist approaches that focus on individual pathogens in isolation to more holistic approaches that focus on interactions among members of the community and their hosts. 
+# continue w/ Correlation-Based Methods inthe review
+
+# https://academic.oup.com/bioinformatics/article/32/17/2611/2450750?login=true
+
 rm(list = ls())
 
-library(wTO)
-require(CoDiNA)
+# library(wTO)
+# require(CoDiNA)
 library(microbiome)
-library(Biostrings)
+# library(Biostrings)
 
 library(tidyverse)
 
@@ -22,7 +29,7 @@ library(RColorBrewer)
 
 # Comensales/basales (C), asignacion no consistente (NC) y Patogena (P)
 
-ranks <- c('Kingdom',  'Phylum',  'Class',  'Order', 'Family', 'Genus', 'pplacer_sp') # 'Species'
+ranks <- c('Kingdom',  'Phylum',  'Class',  'Order', 'Family', 'Genus', 'Species', 'pplacer_sp')
 sampleName <- c('Cantiles', 'Coloradito', 'Granito', 'Machos', 'Partido', 'Rasito')
 dir <- '~/metagenomics/Loberas_MG/'
 
@@ -40,35 +47,19 @@ featureDF <- lapply(fileNames, function(x) {
 
 featureDF <- do.call(rbind, featureDF)
 
-saveRDS(featureDF, file = paste0(dir, '/featureDF.rds'))
-
 names(featureDF)[9] <- 'pplacer_sp'
 
-df <- readCSV(fileNames[2])
-df %>% select_if(is.integer) -> ab
+featureDF %>% 
+  mutate(Relationship = recode_factor(Relationship, P = 'Pathogenic', 
+                                      NC = 'Inconsistent', C = 'non-pathogenic')) -> featureDF
 
-df %>% filter(Relationship %in% 'P') %>% distinct() %>% pull(Feature_IDs) -> Pathogens
+featureDF %>%  mutate_all(., funs(str_replace_all(., c("Bacteroides tectu$" = "Bacteroides tectus")))) -> featureDF
+featureDF %>% mutate_at(sampleName, as.double) -> featureDF
+# grep tectu = tectus
 
-# df %>% select_at(ranks) %>% data.frame(row.names = df$Feature_IDs) -> tax
+saveRDS(featureDF, file = paste0(dir, '/featureDF.rds'))
 
-df %>% select_at(all_of(ranks)) %>% 
-  mutate(id = 1:nrow(df)) %>%
-  pivot_longer(cols = ranks) %>% fill(value) %>%
-  pivot_wider(names_from = name) %>%
-  select(-id) %>%
-  data.frame(row.names = df$Feature_IDs) -> tax
 
-dat <- df %>% select_if(is.integer) %>% data.frame(row.names = df$Feature_IDs)
-
-# identical(names(dat), rownames(sam))
-identical(rownames(dat), rownames(tax))
-
-# and parse
-phyloseq = phyloseq(otu_table(dat, taxa_are_rows = TRUE), 
-                    tax_table(as(tax, 'matrix'))) 
-
-# transform_sample_counts(function(x) sqrt(x / sum(x)))
-saveRDS(phyloseq, file = paste0(dir, 'phyloseq_loberas.rds'))
 
 
 # seleccionar asvs abundantes ----
@@ -94,7 +85,7 @@ for(t in max.rank:1){
 
 # table(tax$Resolution) - sum( table(tax$Resolution))
 
-featureDF %>% select_at(sampleName) -> ab
+featureDF %>% select_at(sampleName) %>% mutate_at(sampleName, as.double)-> ab
 
 prevelancedf = apply(X = ab,
                      MARGIN = 1,
@@ -102,31 +93,33 @@ prevelancedf = apply(X = ab,
 
 # identical(rownames(tax), rownames(ab)) # sanity check
 
-r <- c(0:7)
-names(r) <- ranks
+r <- c(0:6)
+names(r) <- ranks[-8]
+
 data.frame(Resolution = r) %>% as_tibble(rownames = "rank") -> r
 
 
 df = data.frame(Prevalence = prevelancedf, 
                 TotalAbundance = rowSums(ab),
-                tax, group = featureDF$group, Relationship = featureDF$Relationship) %>% as_tibble(rownames = 'id')
+                tax, group = featureDF$group, Relationship = featureDF$Relationship) %>% 
+  as_tibble(rownames = 'id')
 
 df %>% left_join(r) %>% select(-Resolution) %>% mutate(rank = factor(rank, levels = ranks)) -> df
 
-df %>% filter(group %in% 'V3') %>% drop_na(Order)
+# df %>% filter(group %in% 'V3') %>% drop_na(Order)
 
 df %>% 
   group_by(rank, group) %>%
   tally() %>% 
   group_by(group) %>%
-  mutate(nn = cumsum(n) - n, pct = 1 - nn/sum(n), cs = sum(n)-nn) %>%
+  mutate(nn = cumsum(n) - n, pct = 1 - nn/sum(n), cs = sum(n)-nn) %>% # filter(rank %in% 'Genus')
   ggplot(aes(x = rank, y = pct, color = cs, group = group)) +
   geom_path(size = 2, alpha=0.6) +
   geom_point(size=2, alpha=0.6) +
   geom_text(aes(label = cs), size=4, vjust = -1, color = 'black') +
   scale_color_viridis_c(option = "A", direction = -1) +
   labs(y = "Changes in the assignation (%)", x = 'rdp classification', color = "Number of\nFeatures") +
-  facet_grid(~group) +
+  facet_grid(group ~.) +
   theme_bw(base_size = 17) +
   theme(
     axis.text.x = element_text(
@@ -134,8 +127,179 @@ df %>%
     strip.background = element_blank(),
     panel.border = element_blank()) -> psave
 
+
+df %>%
+  mutate(Prevalence = Prevalence/ncol(ab)) %>%
+  mutate(Relationship = ifelse(Relationship %in% 'Pathogenic', 'Pathogenic', "np")) %>%
+  ggplot(aes(TotalAbundance, Prevalence)) +
+  ggpubr::stat_cor(method = "spearman", cor.coef.name = "R", 
+                   p.accuracy = 0.001, color = 'black') +
+  geom_smooth(color = 'blue',
+              method = "lm",
+              linetype="dashed", size = 0.5, alpha=0.5, 
+              se = T, na.rm = TRUE) +
+  # geom_point(aes(color = Relationship), size = 2, alpha = 0.7) +
+  scale_x_log10() +
+  labs(y = "Prevalence (Frac. Samples)", x = "Total Abundance (log10)", color = "Sp. resolution") +
+  facet_wrap(~group) +
+  theme_bw(base_size = 17) +
+  theme(
+    title = element_text(size = 14),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1, size = 12)) 
+  
+#
+
+df %>%
+  mutate(Relationship = ifelse(Relationship %in% 'Pathogenic', 'Pathogenic', "np")) %>%
+  mutate(group= ifelse(Phylum %in% keepPhyla, group, "Low Taxa")) %>%
+  # filter(!Phylum %in% keepPhyla)
+  ggplot(aes(group, TotalAbundance, fill = Relationship)) +
+  stat_boxplot(geom ='errorbar', width = 0.15,
+               position = position_dodge(0.6)) +
+  geom_boxplot(width = 0.6, position = position_dodge(0.6), outlier.shape=NA) +
+  stat_summary(fun = mean, geom="point", shape=20, 
+               size = 3, color="red", fill="red", aes(group = Relationship),
+               position = position_dodge(0.6)) +
+  scale_y_log10() +
+  labs(x = "", y = "Total Abundance (log10)")
+
+df %>% 
+  select(Prevalence, TotalAbundance, group, Relationship) %>%
+  cbind(ab, .) %>% as_tibble() %>% 
+  mutate(st)
+
+# test uniformidad
+
+kruskal.test(ab, subset = featureDF$group)
+# expected
+m <- rowSums(ab) / ncol(ab)
+m <- matrix(m, nrow = nrow(ab), ncol = ncol(ab))
+colnames(m) <- names(ab)
+cor <- cor(m, ab, method = 'pearson')
+corrplot::corrplot(cor, type = 'upper')
+
+library(factoextra)
+res.pca <- prcomp(ab,  scale = TRUE)
+factoextra::fviz_pca(res.pca, label="var", col.ind = "contrib")
+res.pca <- prcomp(m,  scale = TRUE)
+factoextra::fviz_pca(res.pca, label="var", col.ind = "contrib")
+
+
+# species detected by rdp -----
+featureDF %>% 
+  # filter(Relationship %in% 'Pathogenic') %>%
+  group_by(Species, group) %>% 
+  summarise_at(vars(sampleName), sum) %>% 
+  pivot_longer(cols = sampleName, names_to = 'Sample', values_to = 'ab') %>%
+  group_by(Species, group) %>% summarise(ab = sum(ab)) %>%
+  pivot_wider(names_from = group, values_from = ab, values_fill = 0) %>%
+  arrange(Species)
+
+# species detected by pplacer ----
+
+featureDF %>% 
+  filter(Relationship %in% 'Pathogenic') %>%
+  group_by(pplacer_sp, group) %>% 
+  summarise_at(vars(sampleName), sum) %>% 
+  pivot_longer(cols = sampleName, names_to = 'Sample', values_to = 'ab') %>%
+  group_by(pplacer_sp, group) %>% summarise(ab = sum(ab)) %>%
+  pivot_wider(names_from = group, values_from = ab, values_fill = 0) %>%
+  arrange(pplacer_sp) # %>% view()
+
+
 # Gracias Papa
-ggsave(psave, filename = "resolution.png", path = dir, width = 14, height = 7)
+# Gracias, de nuevo 03/06/21
+ggsave(psave, filename = "resolution.png", path = dir, width = 16, height = 7)
+
+# Prepare data count, solving otus sporious ----
+# https://www.nature.com/articles/ismej2015235
+# remove vary rare otus-asvs (sparse less 50%)
+
+
+source("~/Documents/GitHub/metagenomics/estimate_richness.R")
+
+
+# specnumber(ab, MARGIN = 2)
+# vegan::diversity(ab, index = "invsimpson")
+
+
+alphadf <- function(featureDF, g) {
+  
+  measures <- c("Observed", "Shannon","InvSimpson")
+  
+  featureDF %>% 
+    filter(group == g) %>%
+    select_at(sampleName) %>% 
+    mutate_at(sampleName, as.double) -> ab
+  
+  Tab <- colSums(ab)
+  
+  ab %>%
+    estimate_richness(., measures = measures) %>%
+    as_tibble(rownames = "Index") %>%
+    mutate(ab = Tab, group = g)
+}
+
+alphaDF <- lapply(unique(featureDF$group), function(x) {
+  y <- alphadf(featureDF, g = x)
+  return(y)})
+
+alphaDF <- do.call(rbind, alphaDF)
+
+alphaDF %>%
+  group_by(group) %>%
+  summarise(cor = cor(Observed, InvSimpson))
+
+# multiple linear regression in r ggplot
+
+alphaDF %>%
+  ggplot(aes(Observed, InvSimpson, color = group)) +
+  geom_point() +
+  ggpubr::stat_cor(method = "pearson", cor.coef.name = "R", 
+                   p.accuracy = 0.001) +
+  geom_smooth(aes(),
+              method = "lm", 
+              linetype="dashed", size = 0.5, alpha=0.5, 
+              se = F, na.rm = TRUE) +
+  theme_bw(base_size = 16, base_family = "GillSans")
+
+  # geom_mark_hull(aes(fill = group, label = group))
+
+alphaDF %>%
+  ggplot(aes(x = group, y = InvSimpson)) +
+  stat_boxplot(geom ='errorbar', width = 0.15,
+               position = position_dodge(0.6)) +
+  geom_boxplot(width = 0.6, position = position_dodge(0.6), outlier.shape=NA) +
+  stat_summary(fun = mean, geom="point", shape=20, 
+               size = 3, color="red", fill="red") +
+  coord_cartesian(ylim=c(0,NA)) +
+  theme_bw(base_family = "GillSans", base_size = 14)
+
+#
+
+alphaDF %>%
+  ggplot(aes())
+  
+featureDF %>% 
+  select_at(c(sampleName, 'group')) %>%
+  pivot_longer(cols = sampleName) %>%
+  group_by(group) %>%
+  # filter(value == 0) %>%
+  # count() %>% mutate(n = n/6)
+  ggplot(aes(group, value)) +
+  # geom_col()
+  stat_boxplot(geom ='errorbar', width = 0.15,
+               position = position_dodge(0.6)) +
+  geom_boxplot(width = 0.6, position = position_dodge(0.6), outlier.shape=NA) +
+  stat_summary(fun = mean, geom="point", shape=20, 
+               size = 3, color="red", fill="red") +
+  coord_cartesian(ylim=c(0,NA))
+  
+
+# hist(diversity(ab, index = "invsimpson"))
+
+# -> diversityDat
 
 nfeat <- function(x) {length(unique(x))}
 
@@ -169,7 +333,7 @@ dataV %>%
         strip.text.y = element_blank()) -> p1
 
 ggsave(p1, filename = "divergence.png", path = dir, 
-       width = 10, height = 7)
+       width = 12, height = 9)
 
 # Now lets investigate low prevelance/abundance phylum and subset them out.
 
@@ -196,91 +360,6 @@ summary_prevalence
 
 # 
 
-featureDF %>% 
-  pivot_longer(sampleName, values_to = 'Abundance', names_to = 'Sample') %>%
-  select(Feature_IDs, Abundance, Sample, ranks) %>%
-  filter(Abundance > 0) %>%
-  group_by()
-  pivot_longer(ranks, names_to = 'Rank', values_to = 'name') -> out
-
-out %>% group_by(Rank, Sample) %>% summarise(nreads = sum(Abundance)) -> nr 
-
-nasv <- function(x) {length(unique(x))}
-
-out %>% group_by(Rank, Sample) %>% count() -> nf
-# nf <- aggregate(out[,'Feature_IDs'], by=list(out$Rank, out$Sample), FUN = nasv)
-ng <- aggregate(out[,'name'], by=list(out$Rank, out$Sample), FUN = nasv)
-
-n <- left_join(nr, nf)
-
-ggplot() +
-  theme(panel.background = element_rect(fill = "transparent")) +
-  geom_point(data = n, 
-             aes(x=Rank, y = n, shape = Sample, group = Sample),
-             size = 3, alpha = 1) +
-  geom_path(data = n, aes(x = Rank, y = n, group = Sample))
-
-ggplot(data = n) +
-  theme(panel.background = element_rect(fill = "transparent")) +
-  geom_point(aes(x = Rank, y = n, color = nreads, group = Sample, shape = Sample),
-             size = 3, alpha = 1) + 
-  geom_path(data = n, aes(x = Rank, y = ngroup, group = Ship))
-
-reads_n_features <- function(phyloseq, ...) {
-  
-  # psample <- prune_taxa(taxa_sums(phyloseq) > 0, phyloseq)
-  
-  # out <- psmelt(psample)
-  out <- filter(out, Abundance > 0) %>% select(OTU, Abundance, Sample, ranks)
-  out <-reshape2::melt(out, 
-                       measure.vars = ranks, 
-                       variable.name = 'Rank', value.name='name')
-  
-  nr <- aggregate(out[,'Abundance'], 
-                  by=list(out$Rank, out$Sample), FUN = sum)
-  
-  nasv <- function(x) {length(unique(x))}
-  
-  nf <- aggregate(out[,'Feature_IDs'], by=list(out$Rank, out$Sample), FUN = nasv)
-  
-  ng <- aggregate(out[,'name'], by=list(out$Rank, out$Sample), FUN = nasv)
-  
-  total <- sum(sample_sums(psample)) 
-  
-  pct <- round(nr[,3] / total * 100, 3)
-  
-  # sanity check 
-  if(identical(nr[,1], nf[,1])) {
-    
-    n <- data.frame(Rank = nr[,1], Sample = nr[,2], 
-                    nreads = nr[,3], pct = pct, nasvs = nf[,3], 
-                    ngroup = ng[,3])
-  } else
-    n <- data.frame(Rank = nr[,1], Sample = nr[,2], nreads = nr[,3], 
-                    pct = pct, Rank = nr[,1], nasvs = nf[,3], 
-                    ngroup = ng[,3])
-  
-  return(n)
-  
-}
-
-n <-reads_n_features(phyloseq)
-
-nasv <- function(x) {length(unique(x))}
-
-
-df %>%
-  mutate(Resolution = as.factor(Resolution)) %>%
-  select(id, TotalAbundance, Resolution, group) %>% 
-  group_by(Resolution, group) %>%
-  summarise(ab = sum(TotalAbundance), n = nasv(id)) %>%
-  arrange(group) %>%
-  ggplot() +
-  theme(panel.background = element_rect(fill = "transparent")) +
-  geom_point(aes(x = as.factor(Resolution), y = n, color = ab, group = group, shape = group),
-             size = 3, alpha = 1) +  
-  geom_path(aes(x = as.factor(Resolution), y = n, group = group, color = ab))
-
 # Individual taxa filtering
 # Subset to the remaining phyla by prevelance.
 
@@ -292,7 +371,7 @@ df %>%
 
 
 df %>%
-  mutate(is_sp = ifelse(Resolution == 6, TRUE, FALSE)) %>%
+  mutate(is_sp = ifelse(rank == 'Species', TRUE, FALSE)) %>%
   mutate(Phylum= ifelse(Phylum %in% keepPhyla, Phylum, "Low Taxa")) %>%
   mutate(Phylum = factor(Phylum, levels = c(keepPhyla, "Low Taxa"))) %>%
   mutate(Prevalence = Prevalence/ncol(ab)) %>%
@@ -314,6 +393,10 @@ ggsave(p2, filename = "Prevalence.png", path = dir, width = 8, height = 6)
 
 # network!! ----
 
+cocurrance_filtering_sp <- paste0(dir, 'cocurrance_filtering_sp.list') 
+
+# filter by cocurrance, define wether or not use loberas nor marker type to make the network
+# agglomerate rdp-genus rdp-sp and pplacer-sp
 
 from_pyseq_to_wTO <- function(phyloseq, overlap = NULL) {
   
@@ -481,3 +564,4 @@ psaveNet + # psaveNet
   coord_fixed() + 
   facet_nodes(~ membership)
 
+# test later

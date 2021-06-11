@@ -1,5 +1,8 @@
 
+# Biological systems have to regulate when, under which conditions, and how much of a particular protein or RNA is expressed. Interestingly, the molecules that perform this regulation (gene regulatory factors) by binding to DNA are themselves encoded in the DNA, thus creating gene regulatory networks (figure 2c). The effect of the binding can be deduced from analysing expression changes of target genes using RNA-Seq
+
 library(tidygraph)
+library(tidyverse)
 library(igraph)
 library(ggraph)
 
@@ -66,12 +69,12 @@ exportNet(rds[1]) -> graph
 
 graph %>% activate("nodes") %>% mutate(betweenness = betweenness(.)) -> graph
 
-
+graph %>% arrange(desc(degree))
 # membership = igraph::cluster_louvain(.)$membership
-
+quantile(V(graph)$betweenness)
 quantile(V(graph)$betweenness, probs = 0.75) -> cutOff
 
-graph %>% activate(nodes) %>% filter(betweenness > cutOff) -> g
+graph %>% activate(nodes) %>% filter(betweenness >= cutOff) -> g
 
 
 quantile(E(g)$wTO, probs = 0.75) -> EdgeCut
