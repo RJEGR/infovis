@@ -4,6 +4,7 @@
 # (file:///Users/cigom/Downloads/v48i04.pdf qgraph method used in previous ref)
 # network microbiome review at https://www.sciencedirect.com/science/article/abs/pii/S0966842X16301858
 # The complexity of microbiomes motivates a movement from reductionist approaches that focus on individual pathogens in isolation to more holistic approaches that focus on interactions among members of the community and their hosts. 
+
 # continue w/ Correlation-Based Methods inthe review
 
 # https://academic.oup.com/bioinformatics/article/32/17/2611/2450750?login=true
@@ -13,6 +14,7 @@ rm(list = ls())
 # library(wTO)
 # require(CoDiNA)
 library(microbiome)
+library(phyloseq)
 # library(Biostrings)
 
 library(tidyverse)
@@ -151,10 +153,11 @@ df %>%
 #
 
 df %>%
-  mutate(Relationship = ifelse(Relationship %in% 'Pathogenic', 'Pathogenic', "np")) %>%
+  # mutate(Relationship = ifelse(Relationship %in% 'Pathogenic', 'Pathogenic', "np")) %>%
   mutate(group= ifelse(Phylum %in% keepPhyla, group, "Low Taxa")) %>%
   # filter(!Phylum %in% keepPhyla)
   ggplot(aes(group, TotalAbundance, fill = Relationship)) +
+  geom_col(position = position_dodge(0.6))
   stat_boxplot(geom ='errorbar', width = 0.15,
                position = position_dodge(0.6)) +
   geom_boxplot(width = 0.6, position = position_dodge(0.6), outlier.shape=NA) +
@@ -267,7 +270,7 @@ alphaDF %>%
   # geom_mark_hull(aes(fill = group, label = group))
 
 alphaDF %>%
-  ggplot(aes(x = group, y = InvSimpson)) +
+  ggplot(aes(x = group, y = Observed)) +
   stat_boxplot(geom ='errorbar', width = 0.15,
                position = position_dodge(0.6)) +
   geom_boxplot(width = 0.6, position = position_dodge(0.6), outlier.shape=NA) +
@@ -277,9 +280,6 @@ alphaDF %>%
   theme_bw(base_family = "GillSans", base_size = 14)
 
 #
-
-alphaDF %>%
-  ggplot(aes())
   
 featureDF %>% 
   select_at(c(sampleName, 'group')) %>%
@@ -458,7 +458,7 @@ exportNet <- function(WTO, cutoff = 0.01, tau = 0.5) {
   
   nodes <- data.frame(id = sort(unique(c(Node.1,Node.2))))
   
-  nodes <- nodes %>% left_join(df, by = c('id' = 'Feature_IDs')) %>% as_tibble()
+  # nodes <- nodes %>% left_join(df, by = c('id' = 'Feature_IDs')) %>% as_tibble()
   
   # phyloseq %>% phyloseq::tax_table() %>% as.data.frame() %>% as_tibble(rownames = 'id') -> tax
   # phyloseq %>% phyloseq::otu_table() %>% as.data.frame() %>% as_tibble(rownames = 'id') -> ab

@@ -6,7 +6,7 @@ dir <- '~/metagenomics/Loberas_MG/'
 fileNames <- list.files(dir, pattern = "xls", full.names = T)
 
     
-prepare_ps <- function(filename) {
+prepare_ps <- function(filename, agg = T) {
   
   ranks <- c('Kingdom',  'Phylum',  'Class',  'Order', 'Family', 'Genus', 'Species')
   
@@ -47,13 +47,25 @@ prepare_ps <- function(filename) {
   ps = phyloseq(otu_table(dat, taxa_are_rows = TRUE), 
                 tax_table(as(tax, 'matrix'))) 
   
-  microbiome::aggregate_taxa(ps, level = 'Species')
+  if(agg) {
+    microbiome::aggregate_taxa(ps, level = 'Species')
+  } else
+    return(ps)
+
 
 }
 
-prepare_ps(fileNames[1])
+prepare_ps(fileNames[1], agg = F)
 
+dataList <- lapply(fileNames, function(x) {
+  y <- prepare_ps(x)
+  return(y)})
+
+saveRDS(dataList, file = paste0(dir, '/phyloseqList.rds'))
 # consistencia de pplacer %% rdp??
+
+features <- readXLS(fileNames[1])
+
 features %>%
   separate(pplacer_sp, into = c('pplacer', 'prefix'), sep = ' ') %>%
   mutate(
@@ -63,7 +75,7 @@ features %>%
     )) %>% 
   select(Relationship, type, Family:prefix, - Species) 
 
-features %>% filter(grepl('Psychrobacte', pplacer_sp)) %>% select_at(ranks)
+features %>% filter_all(grepl('Psychrobacte', .)) %>% select_at(ranks)
 
 
 

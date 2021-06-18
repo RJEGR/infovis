@@ -274,6 +274,8 @@ Graph = CoDiNA::plot.CoDiNA(DiffNet, cutoff.external = ext_C, cutoff.internal = 
 
 
 library(ggraph)
+library(igraph)
+library(ggforce)
 
 Edges <- Graph$Edges
 Nodes <- Graph$Nodes
@@ -312,7 +314,7 @@ ggraph(layout) +
                  )) +  # aes(alpha = Score)
   geom_node_point(aes(size = Degree_Total * 2 + 1)) +
   geom_node_text(aes(label = name), repel = TRUE) +
-  geom_mark_hull(
+  ggforce::geom_mark_hull(
     aes(x, y, group = group, label=group),
     fill = "grey", color = NA,
     concavity = 4,
@@ -324,7 +326,6 @@ ggraph(layout) +
   theme(legend.position="top") +
   geom_node_point(aes(color = Phylum)) + 
   scale_color_manual(values = getPalette) -> graphSave
-
 
 ggraph(layout) + 
   geom_edge_link(aes(edge_colour = Group, edge_alpha = Score)) +
