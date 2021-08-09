@@ -5,6 +5,9 @@
 
 path <- '~/Documents/DOCTORADO/'
 
+library(ggplot2)
+library(tidyverse)
+
 
 x <- read.csv('~/Documents/DOCTORADO/digital_expression_sRNA_biogenesis_umbertoEtAl2016.csv', header = T)
 mtd <- read.csv('~/Documents/DOCTORADO/Supplementary_File_2_sRNA_biogenesis_umbertoEtAl2016.csv', header = T) 
@@ -14,23 +17,25 @@ mtd %>% mutate_all(., funs(str_replace_all(., c("SRR" = "")))) %>% as_tibble() -
 battery <- c('DROSHA', 'DGCR8', 'XPO5', 'DICER', 'TARBP2')
 
 
-library(ggplot2)
-library(tidyverse)
 
 x %>% select_if(is.double) %>% names() -> samNames
 
 count <- x %>% select_at(samNames)
 rownames(count) <- x$ID
 
+# is the elongation factor the max value ?
+apply(count, 2, function(x) (max(x))) - count[1,]
+
+
 count <- apply(count, 2, function(x) (x / max(x))*100)
+
 colSums(count)
 
-sapply(strsplit(colnames(count), "_"), `[`, 1) -> membership.cols
-
+# sapply(strsplit(colnames(count), "_"), `[`, 1) -> membership.cols
 # superheat::superheat(count[-1,], row.dendrogram = T, membership.cols = membership.cols,
                      # bottom.label.text.angle = 90) # log2(count+1)
 
-annotdf <- x %>% select(ID, Annotation)
+annotdf <- x %>% select(ID, Annotation, Process.step)
 
 cbind(annotdf, count) %>% 
   pivot_longer(cols = samNames, names_to = 'sample', values_to = 'de') %>%
@@ -50,65 +55,266 @@ xlonger %>% left_join(mtd) -> xlonger
 
 xlonger %>% group_by(Annotation) %>% summarise(n=sum(de)) %>% arrange(desc(n)) 
 
+
+xlonger <- xlonger %>% mutate(Sample.type = str_replace(Sample.type, " ", "\n")) 
+
+# prepare scale color
+
+xlonger %>% distinct(Sample.type) %>% pull() -> labels
+colorC <- length(labels)
+
+library(ggsci)
+
+if(colorC > 7) {
+    getPalette <- colorRampPalette(pal_locuszoom()(7))(colorC)
+  } else {
+    getPalette <- pal_locuszoom()(colorC)
+    getPalette = structure(getPalette, names = labels) 
+    }
+  
 # encontramos que durante el desarrollo larval hay mayor actividad de la maquinaria de la biogenesis de sRNAs
+labels
+levels <- c('Developmetal\nstages', 'Abiotic\nstimuli', 'Biotic\nstimuli', 'Tissues')
 
 xlonger %>%
   filter(Annotation != 'EL1a') %>%
-  # mutate(Description = str_replace(Description, "developmental stage ", "")) %>%
-  ggplot(aes(x = sam, y = de, fill = Sample.type)) +
-  geom_col() +
-  # facet_grid(~group, scales = 'free_x', space = 'free_x') +
-  labs(y = '% El1a (TPM)', x = 'Sample ID') +
-  theme_bw(base_family = "GillSans") +
+  mutate(Sample.type = factor(Sample.type, levels = levels)) %>%
+  ggplot(aes(x = sam, y = de)) +
+  geom_col(aes(fill = Sample.type)) +
+  geom_abline(slope = 0, intercept = 1, linetype="dashed", alpha=0.5) +
+  facet_grid(~Sample.type, scales = 'free_x', space = 'free_x', switch = 'x') +
+  labs(y = '% El1a (TPM)', x = '') +
+  scale_fill_manual('',values = getPalette) +
+  theme_classic(base_family = "GillSans", base_size = 16) +
   theme(
-    legend.position = 'top',
-    axis.text.x = element_text(
-      angle = 45, hjust = 1, vjust = 1, size = 7),
+    legend.position = 'none',
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
     strip.background = element_blank(),
     panel.border = element_blank()) -> psave
 
 
-ggsave(psave, filename = 'digitalExp_sRNA_biogenesis.png', path = path, width = 13, height = 7)
+ggsave(psave, filename = 'digitalExp_sRNA_biogenesis.png', path = path, width = 8, height = 4)
 
-# only developmental stage
+# biogenesis protein ----
+
+# not use rowcount, !!
+# count <- x %>% select_at(samNames)
+# 
+# rowSums(count)
+# 
+# count <- apply(count, 2, function(x) (x / sum(x))*100)
+# 
+# colSums(count)
+# 
+# cbind(annotdf, t(count)) %>%
+#   pivot_longer(cols = samNames, names_to = 'sample', values_to = 'de') %>%
+#   separate(col = sample, into = c('group', 'SRA.ID'), sep = '_') %>%
+#   mutate(sam = paste0(group, SRA.ID)) %>%
+#   left_join(mtd) %>%
+#   mutate(Sample.type = str_replace(Sample.type, " ", "\n")) -> xlonger2
+# 
+# xlonger2 %>% group_by(ID) %>% summarise(sum(de))
+
+samTypelevels <- c('Developmetal\nstages', 'Abiotic\nstimuli', 'Biotic\nstimuli', 'Tissues')
+
+xlonger %>% 
+  filter(Annotation != 'EL1a') %>%
+  filter(!Process.step %in% c('HouseK', 'Other interacting proteins')) %>%
+  mutate(Sample.type = factor(Sample.type, levels = samTypelevels))-> miRNAdf
+
+pstepLev <- c('Microprocessor Complex','Moving to cytoplasm', 'RISC load complex', 'Final miRNA maturation or efector', 'mRNA degradation' , 'Other interacting proteins')
+
+
+miRNAdf %>% mutate(Process.step = factor(Process.step, levels = pstepLev)) -> miRNAdf
+
+
+miRNAdf %>%
+  # filter(de >= 0.01) %>%
+  group_by(Description) %>% 
+  # mutate(cpm = edgeR::cpm(de)) %>%
+  mutate(pct = de/sum(de)) %>%
+  ggplot(aes(x = Description, y = pct)) +
+  geom_col(aes(fill = Process.step)) +
+  facet_grid(~Sample.type, scales = 'free_x', space = 'free_x', switch = 'x') +
+  labs(y = 'Relative Expression', x = '') +
+  scale_fill_aaas(name = '') +
+  theme_classic(base_family = "GillSans", base_size = 16) +
+  theme(
+    legend.position = 'bottom',
+    legend.text = element_text(size = 7),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank()) 
+
+ggsave(psave2, filename = 'digitalExp_sRNA_biogenesis2.png', path = path, width = 8, height = 4)
+
+# Library-Size stats -----
+# 
+# en vez de xlonger,hagamos un stats de tamano de libreria por sampletype
+source("~/Documents/GitHub/Estadistica_UABC/anova_and_gaussianity.R")
+
+mtd %>% mutate(M.reads = as.numeric(M.reads))  -> mtd
+  
+mtd %>% 
+  rename("x" = M.reads, "g" = Sample.type) %>%
+  is_parametric()
+
+library(rstatix)
+
+# para muestras idependientes y desequilibradas, en adicion a no normales, usamos una prueba rstatix::kruskal_test()
+# The Wilcoxon test is a non-parametric alternative to the t-test for comparing two means. It’s particularly recommended in a situation where the data are not normally distributed.
+
+
+mtd %>% group_by(Sample.type) %>% summarise(mean(M.reads))
+  
+# if non parametric -----
+xlonger %>%
+  filter(Annotation != 'EL1a') %>%
+  rstatix::wilcox_test(de ~ Sample.type, ref.group = 'Developmetal stages') %>%
+  add_significance -> stat.test
+
+xlonger %>%
+  filter(Annotation != 'EL1a') %>% 
+  wilcox_effsize(de ~ Sample.type, ref.group = 'Developmetal stages')
+
+
+# From the output above, it can be concluded that the median digital Expression (de) of the sample.types during the treatments is significantly different from the digital Expression after treatment with a p-value < 0.05, but effect size r = small.
+
+stat.test <- stat.test %>% add_xy_position(x = "Sample.type", 
+                                           dodge = position_dodge(0.8)) # , scales = 'free_y'
+
+library(ggpubr)
+
+stat.test <- stat.test %>% mutate(xmin = 1, xmax = c(2,3,4))
+
+pbox + stat_pvalue_manual(stat.test, 
+                          y.position = c(0.05), step.increase = 0.005,
+                          hide.ns = T,
+                          remove.bracket = F, tip.length = 0.002, bracket.size = 0.1,
+                          label = "p.adj.signif") +
+  labs(subtitle = get_test_label(stat.test, detailed= T, type = "text")) 
+
+
+# if parametric ----
+# debido a que tratamos con datos simetricos/normales/gausianos, tratamos de probar con una prueba ttest si hay diferencias entre los tamanos de librerias, esto nos ayuda a justificar si hay o no un zesgo en la interpretacion de las abundancias debido al tamano de libreria, los resultados indican que no hay diferencias signiticativas entre el tamano de libreria de las muestras de desarrollo vs el resto, excepto para el grupo de tejidos , lo cual puede deberse a que hay poco numero de muestras (n = 9)
+
+
+mtd %>%
+  rstatix::t_test(M.reads ~ Sample.type, ref.group = 'Developmetal stages') %>%
+  add_significance() -> stat.test
+
+mtd %>% group_by(Sample.type) %>% 
+  summarise(M.reads = quantile(M.reads, probs = 0.9), n = length(SRA.ID)) %>% 
+  mutate(n = paste0('(', n, ')')) %>%
+  mutate(Sample.type = str_replace(Sample.type, " ", "\n")) -> geom.text
+
+mtd %>%
+  mutate(Sample.type = str_replace(Sample.type, " ", "\n")) %>%
+  mutate(Sample.type = factor(Sample.type, levels = levels)) %>%
+  ggplot(aes(x = Sample.type, y = M.reads)) +
+  # geom_col(aes(fill = Sample.type)) +
+  stat_boxplot(geom ='errorbar', width = 0.15,
+               position = position_dodge(0.6)) +
+  geom_boxplot(aes(fill = Sample.type),
+               width = 0.6, position = position_dodge(0.6), outlier.shape=NA) +
+  # stat_summary(fun = mean, geom="point", shape=20,
+  #              size = 3, color="red", fill="red") +
+  coord_cartesian(ylim=c(0,60))  +
+  labs(y = 'Lib.Size (M)', x = '', caption = 'Solo una diferencia significativa entre el tamaño de libreria') +
+  scale_fill_manual('',values = getPalette) +
+  # scale_y_continuous(position = 'right') +
+  theme_bw(base_family = "GillSans", base_size = 18) +
+  theme(
+    legend.position = 'none',
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1, size = 12),
+    strip.background = element_blank(),
+    panel.border = element_blank()) -> pbox
+
+stat.test <- stat.test %>% add_xy_position(x = "Sample.type", 
+                                           dodge = position_dodge(0.6))
+
+library(ggpubr)
+
+stat.test <- stat.test %>% mutate(xmin = 1, xmax = c(2,3,4))
+
+pbox + stat_pvalue_manual(stat.test, 
+                          y.position = 60, step.increase = 2,
+                          hide.ns = T) +
+  labs(subtitle = get_test_label(stat.test, detailed= T, type = "text")) -> pbox
+
+pbox +
+  geom_text(data = geom.text, 
+            aes(label= n, x = Sample.type, y = M.reads+3.5), position = position_dodge(0.6)) -> pbox
+
+
+
+ggsave(pbox, filename = 'digitalExp_sRNA_biogenesisLibsize.png', path = path, width = 5, height = 6)
+
+# (omitimos) ----
+
+# only developmental stage ----
+
+# %>% pull(n) -> n
 
 xlonger %>% 
   filter(Annotation != 'EL1a' & group == 'DEV') %>%
   mutate(Description = str_replace(Description, "developmental stage ", "")) -> devdf
 
-devdf %>% group_by(Description) %>% summarise(n=sum(de)) %>% arrange(desc(n)) %>% 
-  pull(Description) -> levels
-
 # basado en cgigas_embryo_larva_development_SEM.pdf
 
 c('Egg', 'Two cells', 'Four Cells', 'Morula', 'Blastula','Rotary movement' , 
   'free swimming', 'Gastrula', 'Trocophore',
-  'Dshaped', 'Umbo', 'Spat', 'Juvenile') -> stagesLev
+  'Dshaped', 'Umbo', 'Pediveliger', 'Spat', 'Juvenile') -> stagesLev
 
+# expand color pallet
+# ie.
+devdf %>%
+  distinct(Description, stage) %>%
+  group_by(stage) %>% tally() %>% 
+  arrange(match(stage, stagesLev)) 
+
+getPalette[names(getPalette) %in% "Developmetal stages"] -> baseColor
+colorRampPalette(c(baseColor, '#2166ac','#f4a582'), alpha = F)(length(stagesLev)) -> palettes
+
+devdf %>% 
+  arrange(match(stage, stagesLev)) %>%
+  mutate(stage = factor(stage, levels = stagesLev)) %>%
+  mutate(Description = factor(Description, levels = unique(Description))) -> devdf
 
 devdf %>%
-  arrange(match(stage, stagesLev)) %>%
-  # mutate_if(is.character, as.factor) %>%
-  # mutate(stage = factor(stage, levels = stagesLev)) %>%
-  mutate(Description = factor(Description, levels = unique(Description))) %>%
   ggplot(aes(x = Description, y = de, fill = stage)) +
   geom_col() + 
-  labs(y = '% El1a (TPM)') +
+  geom_abline(slope = 0, intercept = 1, linetype="dashed", alpha=0.5) +
+  scale_fill_manual(values = structure(palettes, names = stagesLev) ) +
+  labs(y = '% El1a (TPM)', x = '') +
   theme_bw(base_family = "GillSans") +
   theme(
+    legend.position = 'top',
     axis.text.x = element_text(
-      angle = 45, hjust = 1, vjust = 1, size = 12),
+      angle = 45, hjust = 1, vjust = 1, size = 14),
     strip.background = element_blank(),
     panel.border = element_blank()) -> psave
 
 ggsave(psave, filename = 'developmental_sRNA_biogenesis.png', path = path, width = 12, height = 7)
 
+
+
 # x %>% select_if(Negate(is.double))
 
+# PCA () -----
 
-dim(countD <- count[,grepl('DEV', samNames)])
+miRNAdf %>% distinct(ID) %>% pull(.) -> batteryID
 
-PCA <- prcomp(t(log2(countD+1)), scale. = FALSE) # log2(count+1))
+x %>% 
+  # filter(ID %in% batteryID) %>% 
+  select_at(samNames) -> countM
+
+# dim(countD <- count[,grepl('DEV', samNames)])
+
+PCA <- prcomp(t(log2(countM+1)), scale. = FALSE) # log2(count+1))
 percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
 sd_ratio <- sqrt(percentVar[2] / percentVar[1])
 
@@ -120,10 +326,11 @@ dtvis <- data.frame(PC1 = PCA$x[,1],
 dtvis %>%
   mutate(id = rownames(.)) %>%
   separate(col = id, into = c('group', 'SRA.ID'), sep = '_') %>%
-  left_join(mtd) %>% 
-  mutate(Description = str_replace(Description, "developmental stage ", "")) %>%
-  mutate(subdesc = str_replace(Description, "[1-9]$", "")) %>%
-  ggplot(., aes(PC1, PC2)) +
+  left_join(mtd) %>%
+  mutate(Sample.type = str_replace(Sample.type, " ", "\n")) %>%
+  mutate(Sample.type = factor(Sample.type, levels = samTypelevels)) %>%
+  # mutate(subdesc = str_replace(Description, "[1-9]$", "")) %>%
+  ggplot(., aes(PC1, PC2, color = Sample.type)) +
   geom_point(size = 5, alpha = 0.9) +
   geom_abline(slope = 0, intercept = 0, linetype="dashed", alpha=0.5) +
   geom_vline(xintercept = 0, linetype="dashed", alpha=0.5) +
@@ -132,28 +339,28 @@ dtvis %>%
   xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
   ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
   theme_bw(base_family = "GillSans", base_size = 16) +
-  theme(plot.title = element_text(hjust = 0.5), legend.position = 'top')+
+  theme(plot.title = element_text(hjust = 0.5), legend.position = 'top') +
   # coord_fixed(ratio = sd_ratio) +
-  ggforce::geom_mark_ellipse(aes(label = subdesc, group = subdesc)) +
-  scale_color_brewer(palette = "Set1") +
-  scale_fill_brewer(palette = "Set1") 
+  # ggforce::geom_mark_ellipse(aes(group = Sample.type)) +
+  scale_color_manual('', values = getPalette) -> psave
   # guides(color = FALSE, fill = FALSE)
 
-
+ggsave(psave, filename = 'digitalExp_sRNA_biogenesis_PCA.png', path = path, width = 5, height = 5)
 
 # test WGCNA network using log2 transformed data ----
 
 library(WGCNA)
 library(flashClust)
 
-power_pct <- 0.9
 
+# 
 count <- x %>% select_at(samNames)
 rownames(count) <- annotdf$ID
 
-# count <- count[-1,] # Considera meter EL1a como control negativo, ya que no interactua con alguna proteina de la biogenesis
+# count <- count[-1,] # Considera meter EL1a como control negativo, ya que no interactua con alguna proteina de la biogenesis, sin embargo debido a que representa un outlier dentro de los datos, puede generar zesgos, asi que lo sacamos
+datExpr <- log2(count[-1,]+1)
 
-datExpr <- t(log2(count+1)) # log2(count+1) # 
+datExpr <- t(datExpr) # log2(count+1) # 
 
 str(datExpr)
 
@@ -192,9 +399,15 @@ soft_values <- abs(sign(sft$fitIndices[,3])*sft$fitIndices[,2])
 
 soft_values <- round(soft_values, digits = 2)
 
-power_pct <- 0.6
+hist(soft_values)
+
+power_pct <- quantile(soft_values, probs = 0.95)
 
 softPower <- sft$fitIndices[,1][which(soft_values >= power_pct)]
+
+meanK <- sft$fitIndices[softPower,5]
+
+hist(sft$fitIndices[,5])
 
 softPower <- min(softPower)
 
@@ -203,6 +416,9 @@ cat("\nsoftPower value", softPower, '\n')
 
 title1 = 'Scale Free Topology Model Fit,signed R^2'
 title2 = 'Mean Connectivity'
+
+caption = paste0("lowest power for which the scale free topology index reaches the ", power_pct*100, " %")
+
 sft$fitIndices %>% 
   mutate(scale = -sign(slope)*SFT.R.sq) %>%
   select(Power, mean.k., scale) %>% pivot_longer(-Power) %>%
@@ -210,8 +426,9 @@ sft$fitIndices %>%
   ggplot(aes(y = Power, x = value)) +
   geom_text(aes(label = Power)) +
   geom_abline(slope = 0, intercept = softPower, linetype="dashed", alpha=0.5) +
+  # geom_vline(xintercept = min(meanK), linetype="dashed", alpha=0.5) +
   labs(y = 'Soft Threshold (power)', x = '', 
-       caption = "lowest power for which the scale free topology index reaches the 90%") +
+       caption = caption) +
   facet_grid(~name, scales = 'free_x', switch = "x") +
   # scale_x_continuous(position = "top") +
   theme_light()
@@ -232,32 +449,39 @@ adjacency <- adjacency(datExpr,
 
 TOM <- TOMsimilarity(adjacency, TOMType = "signed") # specify network type
 
-heatmap(TOM)
+# heatmap(TOM)
 
 dissTOM = 1 - TOM
+
+# rownames(dissTOM) <- rownames(adjacency)
+# colnames(dissTOM) <- colnames(adjacency)
 
 # Generate Modules ----
 # Generate a clustered gene tree
 
 geneTree = flashClust(as.dist(dissTOM), method="average")
 
+labels <- annotdf$Annotation[-1][geneTree$order]
+
 plot(geneTree, xlab="", sub="", 
-     main= "Gene Clustering on TOM-based dissimilarity", labels= FALSE, hang=0.04)
+     main= "Gene Clustering on TOM-based dissimilarity", labels = labels, hang=0.04)
 
 #This sets the minimum number of genes to cluster into a module
 
-minClusterSize <- 0
+minClusterSize <- 3
 
 dynamicMods <- cutreeDynamic(dendro= geneTree, 
                              distM = dissTOM,
                              method = "hybrid",
-                             deepSplit = 2, 
-                             cutHeight = 0.8,
+                             deepSplit = 4,
+                             cutHeight = 0.97,
                              pamRespectsDendro = FALSE,
                              minClusterSize = minClusterSize)
 
 dynamicColors = labels2colors(dynamicMods)
 names(dynamicColors) <- colnames(datExpr)
+
+table(dynamicColors)
 
 MEList = moduleEigengenes(datExpr, 
                           colors= dynamicColors,
@@ -306,6 +530,7 @@ plotTOM = dissTOM^7
 diag(plotTOM) = NA
 # Call the plot function
 TOMplot(plotTOM, dendro = geneTree, Colors = moduleColors)
+
 # Relate gene expression modules to traits ----
 
 # Define number of genes and samples
@@ -339,44 +564,13 @@ moduleTraitCor = cor(MEs, datTraits, use= "p")
 
 moduleTraitPvalue = corPvalueStudent(moduleTraitCor, nSamples)
 
-#Print correlation heatmap between modules and traits
-
-textMatrix= paste(signif(moduleTraitCor, 2), "\n(",
-                  signif(moduleTraitPvalue, 1), ")", sep= "")
-dim(textMatrix) == dim(moduleTraitCor)
-
-# sizeGrWindow(5,5)
-# sets the bottom, left, top and right margins respectively
-par(mar= c(3, 30, 3, 3))
-
-png(paste0(path, "/eigengenes_digitalExpression_sRNA_biogenesis.png"), res = 120)
-
-# Display the corelation values with a heatmap plot
-pal <- ggsci::pal_gsea(palette = c("default"), n = 30, 
-                       alpha = 1, reverse = T)(30)
-labeledHeatmap(Matrix= moduleTraitCor,
-               xLabels= names(datTraits),
-               yLabels= names(MEs),
-               ySymbols= str_replace_all(names(MEs), '^ME', ''),
-               colorLabels= FALSE,
-               colors= pal,
-               textMatrix= textMatrix,
-               setStdMargins= FALSE,
-               cex.text= 0.65,
-               zlim= c(-1,1),
-               main= paste("Module-trait relationships"))
-
-#
-
-
-dev.off()
 
 # Intramodular connectivity
 # We would find modules containing genes w/ high positive / negative correlations in spite of a variable (for example HC concetration) previosly correlated with plotEigengeneNetworks
 # Calculate the correlations between modules
 
 geneModuleMembership <- as.data.frame(WGCNA::cor(datExpr, MEs, use = "p"))
-superheat::superheat(geneModuleMembership, pretty.order.rows = T)
+# superheat::superheat(geneModuleMembership, pretty.order.rows = T)
 
 #datKME = signedKME(datExpr, MET)
 
@@ -449,11 +643,14 @@ ggplot() + geom_point(data = allData_df,
 
 moduleTraitCor %>% as_tibble(rownames = 'module') %>% 
   pivot_longer(-module, values_to = 'moduleTraitCor') -> df1
+
 moduleTraitPvalue %>% as_tibble(rownames = 'module') %>% 
   pivot_longer(-module, values_to = 'corPvalueStudent') %>%
   right_join(df1) -> df1
 
 hclust <- hclust(dist(moduleTraitCor), "complete")
+
+modLev <- rownames(moduleTraitCor)[hclust$order]
 
 df1 %>%
   # filter(name %in% c('HC', 'Ctrl')) %>%
@@ -480,8 +677,6 @@ df1 %>%
 
 #
 
-
-
 moduleColors %>% as_tibble(., rownames = 'transcript') %>%
   group_by(value) %>% count(sort = T) %>% mutate(module = paste0('ME',value))-> ModuleDF
 
@@ -490,7 +685,6 @@ ModuleDF %>% mutate(module = factor(module, levels = hclust$labels[hclust$order]
 ModuleDF %>% ungroup() %>% mutate(pct = n / sum(n)) -> ModuleDF
 
 ModuleDF %>% 
-  # mutate(degs = ifelse(degs == 'ns', '', degs)) %>%
   ggplot(aes(x = module, y = n)) + # , fill = degs
   labs(y = 'Number of transcripts') +
   geom_col() + coord_flip() +
@@ -509,14 +703,21 @@ p1 + p2 + plot_layout(widths = c(0.5, 1)) +
 
 ggsave(psave, filename = 'ModuleTraitRelationship_digitalExpression_sRNA_biogenesis.png', path = path, width = 12, height = 7)
 
+# battery <- c('DROSHA', 'DGCR8', 'XPO5', 'DICER', 'TARBP2', 'AGO')
 
-hclust <- hclust(dist(geneTraitSignificance), "complete")
+annotdf %>% filter(!Process.step %in% 'Other interacting proteins') %>% pull(ID) -> battery
 
-geneTraitSignificance %>% 
+geneTraitSignificance[rownames(geneTraitSignificance) %in% battery,] -> heatDF
+
+hclust <- hclust(dist(heatDF), "complete")
+
+
+heatDF %>% 
   as_tibble(rownames = 'nodeName') %>% 
   left_join(annotdf, by = c('nodeName' = 'ID')) %>%
   left_join(moduleColors %>% as_tibble(., rownames = 'nodeName')) %>%
   mutate(nodeName = factor(nodeName, levels = hclust$labels[hclust$order])) %>%
+  mutate(value = factor(value, levels = str_remove(modLev,pattern = 'ME'))) %>%
   mutate(Module = value) %>% select(-value) -> heatDF
 
 heatDF %>%
@@ -526,20 +727,20 @@ heatDF %>%
   ggsci::scale_fill_gsea(name = "Membership", reverse = T, na.value = "white") +
   # scale_fill_viridis_c(name = "Membership", na.value = "white") +
   # ggh4x::scale_y_dendrogram(hclust = hclust) +
-  facet_grid(Module~., scales = 'free_y', space = 'free') +
+  ggh4x::facet_nested(Process.step~., scales = 'free_y', space = 'free') +
   labs(x = '', y = 'Gene') +
   guides(fill = guide_colorbar(barwidth = unit(3, "in"),
                                ticks.colour = "black", ticks.linewidth = 0.5,
                                frame.colour = "black", frame.linewidth = 0.5,
                                label.theme = element_text(size = 12))) +
   theme_classic(base_size = 12, base_family = "GillSans") +
-  theme(legend.position = "top") -> psave
+  theme(legend.position = "top") 
 
 ggsave(psave, filename = 'digital_expression_sRNAs_biogenesis-geneTraitSignificance.png', 
        path = path, height = 9, width = 7) 
 
 
-# export net
+# export net ----
 
 library(ggraph)
 library(igraph)
@@ -565,47 +766,55 @@ Net = exportNetworkToCytoscape(TOM,
 Nodes <- Net$nodeData
 names(Nodes) <- c('nodeName', 'altName', 'Module')
 
-g <- tbl_graph(nodes = Nodes, 
-                   edges = Net$edgeData, directed = FALSE)
+pstepLev <- c('Microprocessor Complex','Moving to cytoplasm', 'RISC load complex', 'Final miRNA maturation or efector', 'mRNA degradation' , 'Other interacting proteins')
 
-hist(E(g)$weight)
-boxplot(E(g)$weight)
-
-quantile(E(g)$weight, probs = c(0.5)) -> qq
-
-g %>% activate(edges) %>% filter(weight > qq) -> g
-
-g %>% activate(edges) %>% as.data.frame() %>% view()
-
-g %>% activate("nodes") %>%  
-  mutate(betweenness = betweenness(.), 
-         degree = centrality_degree(),
-         membership = components(.)$membership,
-         transitivity = transitivity(.)) -> g
 
 geneTraitSignificance %>% 
   as_tibble(rownames = 'nodeName') %>% 
-  # left_join(annotdf, by = c('nodeName' = 'ID')) %>%
-  arrange(match(nodeName, igraph::V(g)$nodeName)) -> nodeInfo
+  left_join(annotdf, by = c('nodeName' = 'ID')) %>%
+  left_join(Nodes) %>% 
+  mutate(Process.step = factor(Process.step, levels = pstepLev)) -> Nodes
 
-g %>% left_join(nodeInfo) -> g
+
+
+g <- tbl_graph(nodes = Nodes, edges = Net$edgeData, directed = FALSE)
+
+g %>% filter(!Process.step %in% "Other interacting proteins") -> g
+
+dev.off()
+hist(E(g)$weight)
+boxplot(E(g)$weight)
+
+quantile(E(g)$weight, probs = c(0.9)) -> qq
+
+g %>% activate(edges) %>% filter(weight > qq) -> g
+
+# g %>% activate(edges) %>% as.data.frame() %>% view()
+
+g %>% activate("nodes") %>%  
+  mutate(
+    # betweenness = betweenness(.), 
+         degree = centrality_degree()
+         # membership = components(.)$membership,
+         # transitivity = transitivity(.)
+         ) -> g
 
 layout = create_layout(g, layout = 'igraph', algorithm = 'kk')
 
 ggraph(layout) +
-  geom_edge_link(aes(edge_alpha = weight)) + # edge_width = weight
-  geom_node_point(aes(color = GS.MAN, size = degree)) + # , alpha = GS
-  geom_node_text(aes(label = altName), repel = TRUE, size = 2) +
+  geom_edge_link(aes(edge_alpha = weight, edge_width = weight)) +
+  geom_node_point(aes(color = Process.step, size = degree)) + # , alpha = GS
+  geom_node_text(aes(label = Annotation), repel = TRUE, size = 2) +
   scale_edge_width(range = c(0.2, 2)) +
   # ggsci::scale_color_gsea(name = 'Gene Correlation', reverse = T) +
-  scale_color_viridis_c(name = 'Gene Significance', option = 'magma', direction = -1) +
-  # scale_color_continuous(name = 'Gene Correlation') + # values = nodeCol
+  scale_color_aaas(name = '') +
   theme_graph(base_family = "GillSans") +
-  guides(fill=guide_legend(nrow = 2)) +
+  guides(color=guide_legend(nrow = 2)) +
   theme(legend.position = "top")+
   coord_fixed() -> pnet
   # facet_nodes(~ Module)
 
+pnet + facet_nodes(~Process.step)
 # library(ggforce)
 
 # pnet +
