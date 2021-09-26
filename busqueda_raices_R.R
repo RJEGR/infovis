@@ -1,4 +1,4 @@
-# Intro ----
+# Intro.... ----
 # Código para método de la bisección 
 # Estudiante: Ayerim Cinai Montelongo Cano
 # 30 de Septiembre de 2021
