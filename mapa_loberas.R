@@ -39,7 +39,7 @@ long <- -c(114.29, 113.32, 113.27, 113.29, 113.02, 112.59)
 
 df <- data.frame(long, lat, site)
 
-prepare_ps(fileNames[1], agg = T, agg_level = 'Phylum') %>%
+prepare_ps(fileNames[1], agg = T) %>% # agg_level = 'Phylum') 
   otu_table(.) %>%
   cbind() %>% as_tibble(rownames = 'Level') %>%
   select_at(vars(ranks)) %>%

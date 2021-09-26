@@ -85,7 +85,9 @@ oceL <- c('Oc. Pacifico Norte', 'U.S. Costa Oeste', 'Golfo de Alaska', 'Mar de B
 pacific_df %>%
   pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
   mutate(var = factor(var, levels = vars)) %>%
-  mutate(oce = factor(oce, levels = oceL)) %>%
+  mutate(oce = factor(oce, levels = oceL)) -> pacific_df
+
+pacific_df %>%
   drop_na(oce) %>%
   filter(value > 0) %>%
   filter(var %in% c('Temp', 'pH', 'Aragonite', 'Salinity', 'Oxygen')) %>%
@@ -109,9 +111,8 @@ pacific_df %>%
 
 # 
 
-
 pacific_df %>% 
-  pivot_longer(cols = all_of(vars), names_to = 'var') %>%
+  # pivot_longer(cols = all_of(vars), names_to = 'var') %>%
   group_by(Year_UTC,oce, var) %>% 
   filter(value > 0) %>%
   filter(var %in% c('Temp', 'pH', 'Aragonite', 'Salinity', 'Oxygen')) %>%
@@ -120,15 +121,15 @@ pacific_df %>%
 library(ggpubr)
 
 pacific_df %>%
-  pivot_longer(cols = all_of(vars), names_to = 'var', values_to = 'y') %>%
+  # pivot_longer(cols = all_of(vars), names_to = 'var', values_to = 'y') %>%
   mutate(var = factor(var, levels = vars)) %>%
   mutate(Year_UTC = factor(Year_UTC, levels = unique(Year_UTC))) %>%
   filter(Depth <= 100) %>%
   drop_na(oce) %>%
   filter(var %in% c('Temp', 'pH', 'Aragonite')) %>%
-  filter(y > 0) %>%
+  filter(value > 0) %>%
   ggstripchart(., 
-             x = "Year_UTC", y = "y",facet.by = 'var',
+             x = "Year_UTC", y = "value",facet.by = 'var',
              color = "oce",
              # palette = c("#00AFBB", "#E7B800", "#FC4E07"),
              add = "mean_sd")
@@ -137,7 +138,7 @@ pacific_df %>%
 # boxplot
 
 pacific_df %>%
-  pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
+  # pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
   mutate(var = factor(var, levels = vars)) %>%
   drop_na(oce) %>%
   filter(value > 0) %>%
@@ -161,7 +162,7 @@ pacific_df %>%
 
 # or complete pacific
 
-x %>%  filter(oce %in% 'Pacific') -> pacific_df
+# x %>%  filter(oce %in% 'Pacific') -> pacific_df
   # filter(Latitude <= 40) -> pacific_df
 
 names(pacific_df)[which(grepl('calculated', names(pacific_df)))] <- c('pH', 'fCO2', 'Carbonate')
@@ -169,8 +170,8 @@ names(pacific_df)[which(grepl('recommended', names(pacific_df)))] <- c('Salinity
 names(pacific_df)[which(grepl('CTD', names(pacific_df)))] <- c('PRES', 'Temp')
 
 pacific_df %>%
-  pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
-  mutate(var = factor(var, levels = vars)) %>%
+  # pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
+  # mutate(var = factor(var, levels = vars)) %>%
   drop_na(oce) %>%
   filter(value > 0) %>%
   filter(Depth <= 100) %>%
@@ -191,7 +192,7 @@ pacific_df %>%
 # anualmente ----
 
 pacific_df %>%
-  pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
+  # pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
   mutate(var = factor(var, levels = vars)) %>%
   drop_na(oce) %>%
   filter(value > 0) %>%
@@ -210,7 +211,7 @@ pacific_df %>%
         panel.border = element_blank()) 
 
 pacific_df %>%
-  pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
+  # pivot_longer(cols = all_of(vars), names_to = 'var') %>% 
   mutate(var = factor(var, levels = vars)) %>%
   drop_na(oce) %>%
   filter(value > 0) %>%
@@ -230,7 +231,7 @@ pacific_df %>%
 
 # maps ----
 
-x %>% filter(oce %in% 'Pacific') %>% pull(Latitude) %>% summary()
+# x %>% filter(oce %in% 'Pacific') %>% pull(Latitude) %>% summary()
 
 pacific_df
 
@@ -253,16 +254,22 @@ gg <- ggplot(data = world) +
   # annotation_scale(location = "bl", width_hint = 0.5) +
   coord_sf(xlim = c(-180, -100),  ylim = c(18, 76))
 
+
+pacific_df %>% filter(oce %in% 'Oc. Pacifico Norte') -> pnort
+pnort %>% pivot_wider(names_from = var)
+
 pacific_df %>%
   filter(Depth <= 100) %>%
-  filter_at(vars(vars), ~ (. > 0)) %>% 
-  group_by(Latitude, Longitude) %>%  # Year_UTC,
-  summarise_at(vars(vars), mean) -> map_in
+  # filter_at(vars(vars), ~ (. > 0)) %>% 
+  filter(value > 0) %>%
+  group_by(Latitude, Longitude, var) %>%  # Year_UTC,
+  # summarise_at(vars(vars), mean) 
+  summarise(mean(value)) -> map_in
 
 map_in %>% pull(Temp) %>% max() -> limit
 
 gg1 +
-  geom_point(data = map_in, 
+  geom_point(data = subset(map_in, ), 
              aes(Longitude, Latitude,
                  color = Temp), 
              alpha = 1, size = 0.5, fill = 'NA') + # shape = 15
@@ -318,7 +325,7 @@ ggsave(psave, path = path, filename = 'ara_pH_temp_map.png', width = 10, height 
 
 # zoom map ----
 
-library(gganimate)
+# library(gganimate)
 
 gg1 <- ggplot(data = world) +
   geom_sf(fill = 'antiquewhite') +
@@ -345,7 +352,7 @@ library(metR)
 # # https://eliocamp.github.io/metR/articles/Visualization-tools.html
 
 map_in %>%
-  pivot_longer(cols = all_of(vars), names_to = 'var') %>%
+  # pivot_longer(cols = all_of(vars), names_to = 'var') %>%
   filter(var %in% c('Temp', 'pH', 'Aragonite')) %>%
   ggplot(aes(value, Latitude)) +
   geom_density2d_filled(aes(color = Depth), contour_var = 'ndensity' ) +
@@ -379,7 +386,7 @@ map_in %>%
   pivot_longer(cols = all_of(vars), names_to = 'var') %>%
   filter(var %in% c('Temp', 'pH', 'Aragonite')) %>%
   ggplot(aes(x = as.factor(Month_UTC), y = value)) +
-  facet_wrap(var~., scales = 'free_y') +
+  facet_grid(var ~., scales = 'free_y') +
   geom_boxplot(width = 0.4, position = position_dodge(0.6), 
                outlier.shape = NA, color = 'grey') +
   stat_boxplot(geom ='errorbar', width = 0.6, color = 'grey') +
@@ -390,7 +397,8 @@ map_in %>%
         # axis.line.y =  element_blank(),
         panel.border = element_blank()) -> psave
   
-ggsave(psave, filename = 'boxplot_seassons.png', path = path,width = 10,height = 2)
+ggsave(psave, filename = 'boxplot_seassons.png', 
+       path = path,width = 4,height = 4)
 
 gg1 +
   geom_point(data = distinct(map_in, Latitude, Longitude), 
@@ -410,7 +418,15 @@ ggsave(psave, path = path, filename = 'pacific_map.png', width = 3.5, height = 3
 
 # COUNTOUR PLOT
 
+map_in %>% group_by(Year_UTC) %>% tally()
 
+map_in %>%
+  ggplot(aes(Longitude, Depth, color = Temp)) +
+  geom_point() +
+  # geom_density2d()
+  scale_y_reverse() +
+  facet_wrap(~Year_UTC)
+  
 
 # ptemp + transition_time(Year_UTC) -> ptemp
 # anim_save(animation = ptemp, filename = "myanimation.gif", path = path)
