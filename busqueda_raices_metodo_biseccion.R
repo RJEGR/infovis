@@ -62,7 +62,7 @@ raiz <- function(a,b,TOL = 1E-10, N = 100) {
   
   Pn <- df[nrow(df), 4] # Ir al último valor de la fila y devolver el valor de la columna 4
   
-  cat('\nLa funcion tiene una raiz en', Pn)
+  cat('\nLa funcion tiene una raiz en: ', Pn, '\n')
   
   return(df)
 }
@@ -79,7 +79,7 @@ TOL = 1E-10
 
 f <- function(x) {tan(pi*x) - 6}
 
-raiz(a = 0, b = 0.48, TOL = 1E-10)
+raiz(a = 0, b = 0.48, TOL = 1E-10) -> tbl1
 
 # Ejercicio 2 ----
 
@@ -92,3 +92,23 @@ raiz(a = 0.5, b = pi/4, TOL = 1E-10)
 f <- function(x) {sin(sqrt(x)) - x}
 
 raiz(a = 0.4, b = 0.6, TOL = 1E-10)
+
+
+# plots ---
+g <- function(x) sin(cos(x)*exp(-x/2))
+
+plot(g, -8, -5)
+
+library(tidyverse)
+
+x = seq(0, 0.48*pi, length = 100)
+
+plot(cos(x))
+
+plot(x,cos(x))
+
+raiz(a = 0, b = 0.48, TOL = 1E-10) %>%
+  # tibble()
+  ggplot(aes(Pn,fp)) +
+  geom_point()
+
