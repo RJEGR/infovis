@@ -27,6 +27,7 @@ raiz <- function(a,b,TOL = 1E-10, N = 100) {
   bn = b
   
   # calculando el punto medio
+  
   Pn = (bn+an)/2
   
   df[[n]] <- data.frame(n, an, bn, Pn, fp = f(Pn))

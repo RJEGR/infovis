@@ -6,9 +6,11 @@
 # Indicaciones: Los programas no van a pedirle al usuario que introduzca ninguna de las funciones, ni tampoco los valores que se necesiten. Todo lo que requieras para que corra o se ejecute el programa ya debe de estar incluido, simplemente vas a comentar y descomentar líneas de codigo.
 
 
-options(digits=5, nsmall = 5)
+options(digits=8)
 
 raiz <- function(a,b,TOL = 1E-10, N = 100) {
+  
+  df <- list() # variable de almacenamiento de tabla
   
   if(f(a)*f(b) > 0)
     stop('\nLa funcion no tiene una raiz en el intervalo [a,b].\n')
@@ -29,7 +31,7 @@ raiz <- function(a,b,TOL = 1E-10, N = 100) {
   # calculando el punto medio
   Pn = (bn+an)/2
   
-  df[[n]] <- data.frame(n, an, bn, Pn, fp = f(Pn))
+  df[[n]] <- data.frame(n, an, bn, Pn, fp = f(Pn)) #almacenar en tabla
   
   # return(df)
   
@@ -56,46 +58,37 @@ raiz <- function(a,b,TOL = 1E-10, N = 100) {
     
   }
   
-  df <- do.call(rbind, df)
+  df <- do.call(rbind, df) # rbind combina filas y columnas de una lista
   
-  Pn <- df[nrow(df), 4]
+  Pn <- df[nrow(df), 4] # Ir al último valor de la fila y devolver el valor de la columna 4
   
   cat('\nLa funcion tiene una raiz en', Pn)
   
   return(df)
 }
 
-
-# Metodo Biseccion ----
-# Mediante el metodo de la biseccion, encuentra la raiz de:
-
-# Ejercicio 1 ----
-
 pi = 3.141592654
 
 TOL = 1E-10
 
+
+# Método Bisección ----
+# Mediante el método de la bisección, encuentra la raíz de:
+
+# Ejercicio 1 ----
+
 f <- function(x) {tan(pi*x) - 6}
 
-df <- list() # variable de almacenamiento de tabla
-
-
-tbl <- raiz(a = 0, b = 0.48, TOL = 1E-10)
-
-tbl %>% view()
+raiz(a = 0, b = 0.48, TOL = 1E-10)
 
 # Ejercicio 2 ----
 
 f <- function(x) {cos(x) - x}
 
-raiz(a = 0.5, b = pi/4, TOL = 1E-10) -> tbl2
-
-tbl2 %>% view()
-
+raiz(a = 0.5, b = pi/4, TOL = 1E-10)
 
 # Ejercicio 3 ----
 
 f <- function(x) {sin(sqrt(x)) - x}
 
-raiz(a = 0.4, b = 0.6, TOL = 1E-10, N = 50)
-
+raiz(a = 0.4, b = 0.6, TOL = 1E-10)
