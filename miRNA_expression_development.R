@@ -14,6 +14,8 @@ mtd <- read.csv('~/Documents/DOCTORADO/pone.0104371.s007_mtd.csv', header = T)
 x <- x[, grepl('RPM', names(x))]
 
 
+pcadf <- cbind(miR_df, x)
+
 prevelancedf = apply(X = x,
                      MARGIN = 1,
                      FUN = function(x){sum(x > 0)})
@@ -155,3 +157,45 @@ pheat + p + plot_layout(widths = c(2, 0.5))-> psave
 ggsave(psave, filename = 'precursor_reads_plot.png', path = path, 
        width = 10, height = 4.5)
 
+
+# PCA
+
+df <- pcadf[, -c(1,2)]
+
+rownames(df) <- pcadf$mature
+
+# df <- t(df)
+# df %>% 
+#   as_tibble(rownames = 'ID') %>% 
+#   left_join(mtd %>%
+#       select(ID, Stage, Group)) %>%
+#   select(-ID) %>%
+#   as.data.frame() -> pcadf
+
+# library(FactoMineR)
+
+PCA <- prcomp(t(log2(df+1)), scale. = FALSE) # log2(count+1))
+percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
+sd_ratio <- sqrt(percentVar[2] / percentVar[1])
+
+dtvis <- data.frame(PC1 = PCA$x[,1], 
+  PC2 = PCA$x[,2])
+
+dtvis %>%
+  mutate(ID = rownames(.)) %>%
+  left_join(mtd %>% select(ID, Stage, Group)) %>%
+  mutate(Stage = factor(Stage, levels = stagesLev)) %>% 
+  arrange(match(Stage, stagesLev)) %>%
+  mutate(Group = factor(Group, levels = c('Tissues', 'Developmental stages'))) %>%
+  ggplot(., aes(PC1, PC2, color = Group)) +
+  # geom_point(size = 0.5, alpha = 0.9) +
+  geom_abline(slope = 0, intercept = 0, linetype="dashed", alpha=0.5) +
+  geom_vline(xintercept = 0, linetype="dashed", alpha=0.5) +
+  ggrepel::geom_label_repel(aes(label = Stage), alpha = 0.9) +
+  labs(caption = '') +
+  xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
+  ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
+  theme_bw(base_family = "GillSans", base_size = 16) +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = 'top') -> psave
+
+ggsave(psave, filename = 'miRNAs_RPM_plots_PCA.png', path = path, width = 7, height = 5)

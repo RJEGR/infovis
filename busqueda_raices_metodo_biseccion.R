@@ -6,7 +6,9 @@
 # Indicaciones: Los programas no van a pedirle al usuario que introduzca ninguna de las funciones, ni tampoco los valores que se necesiten. Todo lo que requieras para que corra o se ejecute el programa ya debe de estar incluido, simplemente vas a comentar y descomentar líneas de codigo.
 
 
-options(digits=8)
+# options(digits=8)
+
+options(digits=5)
 
 raiz <- function(a,b,TOL = 1E-10, N = 100) {
   
@@ -67,7 +69,8 @@ raiz <- function(a,b,TOL = 1E-10, N = 100) {
   return(df)
 }
 
-pi = 3.141592654
+# pi = 3.141592654
+pi = 3.1415926535897932
 
 TOL = 1E-10
 
@@ -85,30 +88,36 @@ raiz(a = 0, b = 0.48, TOL = 1E-10) -> tbl1
 
 f <- function(x) {cos(x) - x}
 
-raiz(a = 0.5, b = pi/4, TOL = 1E-10)
+raiz(a = 0.5, b = pi/4, TOL = 1E-10) -> tbl2
 
 # Ejercicio 3 ----
 
 f <- function(x) {sin(sqrt(x)) - x}
 
-raiz(a = 0.4, b = 0.6, TOL = 1E-10)
+raiz(a = 0.4, b = 0.6, TOL = 1E-10) -> tbl3
+
 
 
 # plots ---
-g <- function(x) sin(cos(x)*exp(-x/2))
-
-plot(g, -8, -5)
 
 library(tidyverse)
 
-x = seq(0, 0.48*pi, length = 100)
+tbl <- tbl3
 
-plot(cos(x))
+caption <- paste0('Número de iteraciones: ', 
+                  nrow(tbl))
 
-plot(x,cos(x))
-
-raiz(a = 0, b = 0.48, TOL = 1E-10) %>%
-  # tibble()
+tbl %>%
+  mutate(col = ifelse(n == nrow(tbl), 
+                      'red','black')) %>%
   ggplot(aes(Pn,fp)) +
-  geom_point()
+  geom_line(linetype = 'dashed', color = 'grey33') +
+  geom_point(size = 1, alpha = 0.9,
+             aes(color = col)) +
+  # scale_y_continuous(limits = c(-6,0)) +
+  scale_color_manual(values = c('black','red')) +
+  theme_classic(base_size = 16) +
+  theme(legend.position = 'none') +
+  labs(y = 'f(Pn)', 
+       caption = caption)
 

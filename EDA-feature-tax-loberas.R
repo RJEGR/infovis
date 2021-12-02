@@ -55,9 +55,20 @@ featureDF %>%
   mutate(Relationship = recode_factor(Relationship, P = 'Pathogenic', 
                                       NC = 'Inconsistent', C = 'non-pathogenic')) -> featureDF
 
+
 featureDF %>%  mutate_all(., funs(str_replace_all(., c("Bacteroides tectu$" = "Bacteroides tectus")))) -> featureDF
 featureDF %>% mutate_at(sampleName, as.double) -> featureDF
 # grep tectu = tectus
+
+# clean some non pathogenic taxa
+cleanTax <- c('Campylobacter insulaenigrae', 'Helicobacter muridarum',
+              'Campylobacter coli', 'Sutterella stercoricanis', 'Campylobacter concisus')
+
+featureDF %>% filter(!pplacer_sp %in% cleanTax) -> featureDF
+
+# featureDF %>% filter(pplacer_sp %in% cleanTax) %>%
+# select(Feature_IDs, group, pplacer_sp, sampleName)
+
 
 saveRDS(featureDF, file = paste0(dir, '/featureDF.rds'))
 

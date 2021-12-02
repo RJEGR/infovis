@@ -7,9 +7,11 @@
 
 # Funciones
 
+# install.packages('Deriv')
+
 library(Deriv)
 
-options(digits=10)
+options(digits = 5)
 
 df <- list() 
 
@@ -68,7 +70,7 @@ f <- function(x) {tan(pi*x) - 6}
 
 Po = 0.23
 
-raiz(Po)
+raiz(Po) -> tbl1
 
 # Ejercicio 2 ----
 
@@ -76,7 +78,7 @@ f <- function(x) {cos(x) - x}
 
 Po = pi / 4
 
-raiz(Po) 
+raiz(Po)  -> tbl2
 
 # Ejercicio 3 ----
 
@@ -84,4 +86,28 @@ f <- function(x) {sin(sqrt(x)) - x}
 
 Po = 1
 
-raiz(Po)
+raiz(Po) -> tbl3
+
+
+# plots ---
+
+library(tidyverse)
+
+tbl <- tbl3
+
+caption <- paste0('Número de iteraciones: ', 
+                  nrow(tbl))
+
+tbl %>%
+  mutate(col = ifelse(n == nrow(tbl), 
+                      'red','black')) %>%
+  ggplot(aes(Pn,fp)) +
+  geom_line(linetype = 'dashed', color = 'grey33') +
+  geom_point(size = 1, alpha = 0.9,
+             aes(color = col)) +
+  # scale_y_continuous(limits = c(-6,0)) +
+  scale_color_manual(values = c('black','red')) +
+  theme_classic(base_size = 16) +
+  theme(legend.position = 'none') +
+  labs(y = 'f(Pn)', 
+       caption = caption)

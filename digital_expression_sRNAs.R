@@ -305,6 +305,7 @@ ggsave(psave, filename = 'developmental_sRNA_biogenesis.png', path = path, width
 # x %>% select_if(Negate(is.double))
 
 # PCA () -----
+# only the developmental stages
 
 miRNAdf %>% distinct(ID) %>% pull(.) -> batteryID
 
@@ -312,9 +313,10 @@ x %>%
   # filter(ID %in% batteryID) %>% 
   select_at(samNames) -> countM
 
-# dim(countD <- count[,grepl('DEV', samNames)])
+dim(countD <- countM[,grepl('DEV', samNames)])
 
-PCA <- prcomp(t(log2(countM+1)), scale. = FALSE) # log2(count+1))
+
+PCA <- prcomp(t(log2(countD+1)), scale. = FALSE) # log2(count+1))
 percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
 sd_ratio <- sqrt(percentVar[2] / percentVar[1])
 
@@ -322,15 +324,24 @@ dtvis <- data.frame(PC1 = PCA$x[,1],
                     PC2 = PCA$x[,2])
                     # mtd %>% distinct(group, .keep_all = T))
 
+g <- mtd %>% filter(grepl('Developmetal', Sample.type )) %>% pull(stage)
+n <- length(unique(g))
+grid.col <- c(ggsci::pal_d3()(10), ggsci::pal_aaas()(n-10))
+grid.col <- structure(grid.col, names = stagesLev)
+
+
 
 dtvis %>%
   mutate(id = rownames(.)) %>%
   separate(col = id, into = c('group', 'SRA.ID'), sep = '_') %>%
   left_join(mtd) %>%
   mutate(Sample.type = str_replace(Sample.type, " ", "\n")) %>%
-  mutate(Sample.type = factor(Sample.type, levels = samTypelevels)) %>%
+  # mutate(Sample.type = factor(Sample.type, levels = samTypelevels)) %>%
   # mutate(subdesc = str_replace(Description, "[1-9]$", "")) %>%
-  ggplot(., aes(PC1, PC2, color = Sample.type)) +
+  arrange(match(stage, stagesLev)) %>%
+  mutate(stage = factor(stage, levels = stagesLev)) %>%
+  filter(stage %in% stagesLev[-c(1:7)]) %>%
+  ggplot(., aes(PC1, PC2, color = stage)) +
   geom_point(size = 5, alpha = 0.9) +
   geom_abline(slope = 0, intercept = 0, linetype="dashed", alpha=0.5) +
   geom_vline(xintercept = 0, linetype="dashed", alpha=0.5) +
@@ -340,12 +351,13 @@ dtvis %>%
   ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
   theme_bw(base_family = "GillSans", base_size = 16) +
   theme(plot.title = element_text(hjust = 0.5), legend.position = 'top') +
+  scale_color_manual(values = grid.col) +
   # coord_fixed(ratio = sd_ratio) +
-  # ggforce::geom_mark_ellipse(aes(group = Sample.type)) +
-  scale_color_manual('', values = getPalette) -> psave
+  ggforce::geom_mark_ellipse(aes(group = stage, label = stage)) -> psave
+  # scale_color_manual('', values = getPalette) -> psave
   # guides(color = FALSE, fill = FALSE)
 
-ggsave(psave, filename = 'digitalExp_sRNA_biogenesis_PCA.png', path = path, width = 5, height = 5)
+ggsave(psave, filename = 'digitalExp_sRNA_biogenesis_dev_PCA.png', path = path, width = 12, height = 6.5)
 
 # test WGCNA network using log2 transformed data ----
 
