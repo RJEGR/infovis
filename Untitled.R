@@ -30,7 +30,7 @@ file <- list.files(path, pattern = pattern_f,  full.names = TRUE)
 df <- lapply(file, read.csv)
 
 head(df <- do.call(rbind, df))
-
+df %>% drop_na(Total_RNA_ug) -> df
 m <- round(min(df$Total_RNA_ug))-1
 M <- round(max(df$Total_RNA_ug)) + m
 
@@ -58,6 +58,18 @@ df %>%
   scale_y_continuous(expression("Total RNA" ~ (µg)), breaks = seq(m,M, by = 15)) +
   scale_x_discrete("",labels = df$P)+
   scale_fill_manual("", values = getPalette[-3]) -> p
+
+# heatmap
+
+df %>%
+  mutate(A260_A280 = ifelse(A260_A280 > 5, NA, A260_A280)) %>%
+  ggplot(aes(y = as.factor(P), x = as.factor(pH), fill = Total_RNA_ug)) +
+  geom_tile(color = 'black', size = 0.5) +
+  facet_grid(Stress ~ hpf, scales = 'free', space = 'free') +
+  scale_fill_viridis_c(expression("Total RNA" ~ (µg))) +
+  theme_bw() +
+  labs(x = 'pH', y = '') +
+  theme(legend.position = 'top')
 
 df %>%
   ggplot() +
@@ -87,7 +99,23 @@ df %>%
   facet_grid(~ hpf,scales = 'free_x') +
   labs(y = expression(A[260]/A[280])) +
   scale_x_discrete("",labels = df$P) +
-  scale_fill_manual("", values = getPalette[-3]) -> p2
+  scale_fill_manual("", values = getPalette[-3]) 
+
+
+df %>%
+  # mutate(A260_A280 = ifelse(A260_A280 > 5, NA, A260_A280)) %>%
+  ggplot(aes(x = as.factor(pH), y = A260_A280, fill = as.factor(pH), color = as.factor(pH))) +
+  stat_boxplot(geom ='errorbar', width = 0.3, position = position_dodge(0.6)) +
+  # geom_boxplot(width = 0.3, position = position_dodge(0.6),
+    # outlier.alpha = 0) +
+  geom_point(alpha = 0.3) +
+  facet_grid(~ hpf,scales = 'free_x') +
+  labs(y = expression(A[260]/A[280])) +
+  scale_y_continuous(breaks = seq(1.5,2.5, by = 0.2), limits = c(1.5,2.5)) +
+  scale_x_discrete("",labels = df$P) +
+  scale_fill_manual("", values = getPalette[-3]) +
+  scale_color_manual("", values = getPalette[-3]) -> p2
+
 
 library(patchwork)
 p1+p2+plot_layout(widths = c(1,4))
@@ -98,8 +126,20 @@ df %>%
   mutate(col = ifelse(A260_A280 > 5, 'red', 'black')) %>%
   ggplot(aes(A260_A280, Total_RNA_ug)) +
   facet_grid(pH ~ hpf,scales = 'free') +
-  theme_bw() +
-  geom_point()
+  theme_bw(base_size = 10, base_family = "GillSans") +
+  labs(x = expression(A[260]/A[280]), y = expression("Total RNA" ~ (µg))) +
+  geom_text(aes(label = P), size = 2, family = "GillSans")
+
+df %>%
+  mutate(A280 = A260/A260_A280) %>%
+  mutate(A260_A280 = ifelse(A260_A280 > 5, NA, A260_A280)) %>%
+  ggplot(aes(A260_A280, Total_RNA_ug, color = as.factor(pH))) +
+  facet_grid( ~ hpf,scales = 'free_y') +
+  theme_bw(base_size = 10, base_family = "GillSans") +
+  labs(x = expression(A[260]/A[280]), y = expression("Total RNA" ~ (µg))) +
+  geom_text(aes(label = P), size = 2.5, family = "GillSans") +
+  scale_color_manual("", values = getPalette[-3]) +
+  theme(legend.position = 'none')
 
 # test ggdensity
 # Not good enough <---
